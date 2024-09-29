@@ -1,15 +1,14 @@
 from aiogram import Bot, Dispatcher
 import asyncio
 from handlers import callback_handler, command_handler
-
 from dotenv import dotenv_values
 
-API_TOKEN = dotenv_values(".env")['API_TOKEN']
-bot = Bot(token=API_TOKEN)
-dp = Dispatcher()
+API_TOKEN: str = dotenv_values(".env")['API_TOKEN']
+bot: Bot = Bot(token=API_TOKEN)
+dp: Dispatcher = Dispatcher()
 
 
-async def main():
+async def main() -> None:
     dp.include_router(command_handler.router)
     dp.include_router(callback_handler.router)
 

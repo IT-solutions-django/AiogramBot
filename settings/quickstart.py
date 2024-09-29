@@ -1,15 +1,15 @@
 import os.path
-
+from typing import Optional
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
-from googleapiclient.discovery import build
+from googleapiclient.discovery import build, Resource
 
-SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
+SCOPES: list[str] = ['https://www.googleapis.com/auth/spreadsheets']
 
 
-def main():
-    creds = None
+def main() -> Resource:
+    creds: Optional[Credentials] = None
     if os.path.exists('settings/token.json'):
         creds = Credentials.from_authorized_user_file('settings/token.json', SCOPES)
     if not creds or not creds.valid:
@@ -21,6 +21,6 @@ def main():
         with open('settings/token.json', 'w') as token:
             token.write(creds.to_json())
 
-    service = build('sheets', 'v4', credentials=creds)
+    service: Resource = build('sheets', 'v4', credentials=creds)
 
     return service

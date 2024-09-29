@@ -26,7 +26,7 @@ router = Router()
 
 
 @router.callback_query(F.data.startswith('get_company_'))
-async def callback_get_company(callback: types.CallbackQuery):
+async def callback_get_company(callback: types.CallbackQuery) -> None:
     action = callback.data.split("_")[2]
 
     if action == 'info':
@@ -40,7 +40,7 @@ async def callback_get_company(callback: types.CallbackQuery):
 
 
 @router.callback_query(lambda callback: callback.data in load_table.advertisements_options.keys())
-async def callback_get_company_options(callback: types.CallbackQuery):
+async def callback_get_company_options(callback: types.CallbackQuery) -> None:
     options = callback.data
     company_info = load_table.advertisements_options[options]
 
@@ -56,7 +56,7 @@ async def callback_get_company_options(callback: types.CallbackQuery):
 
 
 @router.callback_query(F.data == 'get_balance_users')
-async def get_balance(callback: types.CallbackQuery):
+async def get_balance(callback: types.CallbackQuery) -> None:
     boobs = {data['Client']: {'Boobs': data['Boobs'], 'Company': field} for field, data in load_table.companies.items()
              if
              'Boobs' in data}
@@ -80,7 +80,7 @@ async def get_balance(callback: types.CallbackQuery):
 
 
 @router.callback_query(F.data == 'get_command_server')
-async def get_command_server(callback: types.CallbackQuery):
+async def get_command_server(callback: types.CallbackQuery) -> None:
     buttons_command_server = [
         [types.InlineKeyboardButton(text='Start', callback_data='start')],
         [types.InlineKeyboardButton(text='Stop', callback_data='stop')],
@@ -93,7 +93,7 @@ async def get_command_server(callback: types.CallbackQuery):
 
 
 @router.callback_query(lambda callback: callback.data in ['start', 'stop', 'restart', 'status'])
-async def command_server(callback: types.CallbackQuery):
+async def command_server(callback: types.CallbackQuery) -> None:
     command = callback.data
 
     await callback.message.answer('Идет выполнение команды...')
@@ -138,7 +138,7 @@ async def command_server(callback: types.CallbackQuery):
 
 
 @router.callback_query(lambda callback: callback.data.split('_')[1] in load_table.companies.keys())
-async def callback_get_company_values(callback: types.CallbackQuery):
+async def callback_get_company_values(callback: types.CallbackQuery) -> None:
     action, company_name = callback.data.split("_")
     message = f'<b>Компания "{company_name}"</b>\n\n'
 

@@ -6,7 +6,7 @@ router = Router()
 
 
 @router.message(Command("start"))
-async def send_welcome(message: types.Message):
+async def send_welcome(message: types.Message) -> None:
     buttons_start = [
         [types.InlineKeyboardButton(text='Показать информацию о компании', callback_data='get_company_info')],
         [types.InlineKeyboardButton(text='Показать объявления компании', callback_data='get_company_advertisements')],
