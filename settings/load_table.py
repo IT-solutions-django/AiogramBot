@@ -1,4 +1,4 @@
-from quickstart import main
+from settings.quickstart import main
 
 service = main()
 
