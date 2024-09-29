@@ -185,8 +185,9 @@ async def callback_get_company_values(callback: types.CallbackQuery) -> None:
 
             vladivostok_tz = pytz.timezone('Asia/Vladivostok')
             vladivostok_time = datetime.now(vladivostok_tz).time()
+            current_day_vladivostok = datetime.now(vladivostok_tz).weekday()
 
-            tasks = [fetch_advertisement_data(advertisement, all_dict, vladivostok_time)
+            tasks = [fetch_advertisement_data(advertisement, all_dict, vladivostok_time, current_day_vladivostok)
                      for advertisement in company_advertisements]
 
             message_lines = await asyncio.gather(*tasks)
