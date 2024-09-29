@@ -1,9 +1,16 @@
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram import types
 import aiohttp
-from bs4 import BeautifulSoup
-from datetime import datetime, time
+
 from typing import Optional, Dict, List
+
+from bs4 import BeautifulSoup
+
+from datetime import datetime, time
+
+import logging
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
 def is_day_active() -> Dict[str, set]:
@@ -44,7 +51,13 @@ async def fetch_advertisement_data(advertisement: Dict[str, str], all_dict: Dict
     id_advertisement: str = advertisement['_id']
 
     active_day_map: Dict[str, set] = is_day_active()
-    active_day: set = active_day_map[advertisement['weekday_active']]
+    active_day: Optional[set] = active_day_map.get(advertisement['weekday_active'], None)
+
+    if active_day is None:
+        logging.warning(
+            f"Активный день для объявления '{id_advertisement}' не найден. Пожалуйста, добавьте его в active_day_map.")
+        return f'Для объявления "{id_advertisement}" активный день не определён. Требуется обновление.\n\n'
+
     is_active_day: bool = current_day in active_day
 
     url: str = f'https://www.farpost.ru/{id_advertisement}/'
