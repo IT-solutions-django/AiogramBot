@@ -18,7 +18,7 @@ import logging
 
 from dotenv import dotenv_values
 
-from settings.utils import split_message, show_options, fetch_advertisement_data, get_balance, get_server
+from settings.utils import split_message, show_options, get_balance, get_server, fetch_advertisement_common
 
 if not load_table.companies or not load_table.advertisements_options or not load_table.advertisements:
     logging.info('Началась загрузка данных')
@@ -145,8 +145,8 @@ async def get_options_price(callback: types.CallbackQuery):
                     vladivostok_time = datetime.now(vladivostok_tz).time()
                     current_day_vladivostok = datetime.now(vladivostok_tz).weekday()
 
-                    task = await fetch_advertisement_data(advertisements, all_dict, vladivostok_time,
-                                                          current_day_vladivostok)
+                    task = await fetch_advertisement_common(advertisements, all_dict, vladivostok_time,
+                                                            current_day_vladivostok, False)
 
                     return f'Компания "{advertisements["client"]}". ' + task
                 else:
@@ -163,6 +163,51 @@ async def get_options_price(callback: types.CallbackQuery):
     parts = split_message(message_lines)
     for part in parts:
         await callback.message.answer(part, parse_mode='HTML')
+
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith('problems_advertisements_'))
+async def problems_advertisements(callback: types.CallbackQuery):
+    company_name = callback.data.split("problems_advertisements_")[1]
+    company_boobs = load_table.companies[company_name].get('Boobs', '')
+
+    if company_boobs:
+        await callback.message.answer('Загружаем данные...')
+
+        headers = {'Cookie': f'boobs={company_boobs}'}
+        url = 'https://www.farpost.ru/personal/actual/bulletins'
+        async with aiohttp.request('get', url, headers=headers) as response:
+            if response.status == 200:
+                content = await response.text()
+
+                soup = BeautifulSoup(content, 'html.parser')
+
+                currencies = soup.find_all('div', class_='service-card-head__link serviceStick applied')
+                titles = soup.find_all('a', class_='bulletinLink bull-item__self-link auto-shy')
+
+                all_dict = {title['href']: div.text.strip().split(',')[1]
+                            for title, div in zip(titles, currencies)}
+
+        company_advertisements = load_table.advertisements[company_name]
+        vladivostok_tz = pytz.timezone('Asia/Vladivostok')
+        vladivostok_time = datetime.now(vladivostok_tz).time()
+        current_day_vladivostok = datetime.now(vladivostok_tz).weekday()
+
+        tasks = [fetch_advertisement_common(advertisement, all_dict, vladivostok_time, current_day_vladivostok, True)
+                 for advertisement in company_advertisements]
+
+        message_lines = await asyncio.gather(*tasks)
+        message = ''.join(message_lines)
+    else:
+        message = 'Для данной компании действие недоступно'
+
+    if not message:
+        await callback.message.answer('Для данной компании нет "проблемных" объявлений')
+    else:
+        parts = split_message(message)
+        for part in parts:
+            await callback.message.answer(part, parse_mode='HTML')
 
     await callback.answer()
 
@@ -217,8 +262,9 @@ async def callback_get_company_values(callback: types.CallbackQuery) -> None:
             vladivostok_time = datetime.now(vladivostok_tz).time()
             current_day_vladivostok = datetime.now(vladivostok_tz).weekday()
 
-            tasks = [fetch_advertisement_data(advertisement, all_dict, vladivostok_time, current_day_vladivostok)
-                     for advertisement in company_advertisements]
+            tasks = [
+                fetch_advertisement_common(advertisement, all_dict, vladivostok_time, current_day_vladivostok, False)
+                for advertisement in company_advertisements]
 
             message_lines = await asyncio.gather(*tasks)
             message = ''.join(message_lines)
@@ -234,3 +280,8 @@ async def callback_get_company_values(callback: types.CallbackQuery) -> None:
 @router.callback_query(F.data == 'get_options_for_price')
 async def get_options_for_price(callback: types.CallbackQuery):
     await show_options(callback, load_table.advertisements_options, 'options', 'options_price')
+
+
+@router.callback_query(F.data == 'get_problems_advertisements')
+async def get_problems_advertisements(callback: types.CallbackQuery):
+    await show_options(callback, load_table.companies, 'компанию', 'problems_advertisements')

@@ -20,7 +20,9 @@ async def send_welcome(message: types.Message) -> None:
         [types.InlineKeyboardButton(text='Показать баланс пользователей', callback_data='get_balance_users')],
         [types.InlineKeyboardButton(text='Узнать цену объявлений компании', callback_data='get_company_price')],
         [types.InlineKeyboardButton(text='Узнать цену объявлений компании (по options)',
-                                    callback_data='get_options_for_price')]
+                                    callback_data='get_options_for_price')],
+        [types.InlineKeyboardButton(text='Объявления компании, требующие проверки',
+                                    callback_data='get_problems_advertisements')]
     ]
 
     keyboard = types.InlineKeyboardMarkup(inline_keyboard=buttons_start)
@@ -60,3 +62,8 @@ async def get_balance_command(message: types.Message) -> None:
 @router.message(Command("get_options_for_price"))
 async def get_options_for_price_command(message: types.Message) -> None:
     await show_options(message, load_table.advertisements_options, 'options', 'options_price')
+
+
+@router.message(Command("get_problems_advertisements"))
+async def get_problems_advertisements_command(message: types.Message) -> None:
+    await show_options(message, load_table.companies, 'компанию', 'problems_advertisements')
