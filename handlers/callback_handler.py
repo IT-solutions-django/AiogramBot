@@ -116,6 +116,57 @@ async def command_server(callback: types.CallbackQuery) -> None:
     await callback.answer()
 
 
+@router.callback_query(F.data.startswith('options_price_'))
+async def get_options_price(callback: types.CallbackQuery):
+    options = callback.data.split("options_price_")[1]
+    advertisements_options = load_table.advertisements_options[options]
+
+    await callback.message.answer('Загружаем данные...')
+
+    async def fetch_data_for_advertisement(advertisements):
+        company_boobs = load_table.companies[advertisements['client']].get('Boobs', '')
+        if company_boobs:
+            headers = {'Cookie': f'boobs={company_boobs}'}
+            url = 'https://www.farpost.ru/personal/actual/bulletins'
+
+            async with aiohttp.request('get', url, headers=headers) as response:
+                if response.status == 200:
+                    content = await response.text()
+
+                    soup = BeautifulSoup(content, 'html.parser')
+
+                    currencies = soup.find_all('div', class_='service-card-head__link serviceStick applied')
+                    titles = soup.find_all('a', class_='bulletinLink bull-item__self-link auto-shy')
+
+                    all_dict = {title['href']: div.text.strip().split(',')[1]
+                                for title, div in zip(titles, currencies)}
+
+                    vladivostok_tz = pytz.timezone('Asia/Vladivostok')
+                    vladivostok_time = datetime.now(vladivostok_tz).time()
+                    current_day_vladivostok = datetime.now(vladivostok_tz).weekday()
+
+                    task = await fetch_advertisement_data(advertisements, all_dict, vladivostok_time,
+                                                          current_day_vladivostok)
+
+                    return f'Компания "{advertisements["client"]}". ' + task
+                else:
+                    return f'Ошибка получения данных для {advertisements["client"]}\n\n'
+        else:
+            return f'Для компании "{advertisements["client"]} - {advertisements["city"]}" действие недоступно\n\n'
+
+    tasks = [fetch_data_for_advertisement(advertisements) for advertisements in advertisements_options]
+    results = await asyncio.gather(*tasks)
+
+    message_lines = ''.join(results)
+    message_lines = f'Options "{options}"\n\n' + message_lines
+
+    parts = split_message(message_lines)
+    for part in parts:
+        await callback.message.answer(part, parse_mode='HTML')
+
+    await callback.answer()
+
+
 @router.callback_query(lambda callback: callback.data.split('_')[1] in load_table.companies.keys())
 async def callback_get_company_values(callback: types.CallbackQuery) -> None:
     action, company_name = callback.data.split("_")
@@ -178,3 +229,8 @@ async def callback_get_company_values(callback: types.CallbackQuery) -> None:
     for part in parts:
         await callback.message.answer(part, parse_mode='HTML')
     await callback.answer()
+
+
+@router.callback_query(F.data == 'get_options_for_price')
+async def get_options_for_price(callback: types.CallbackQuery):
+    await show_options(callback, load_table.advertisements_options, 'options', 'options_price')
