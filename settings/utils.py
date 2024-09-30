@@ -2,7 +2,9 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram import types
 import aiohttp
 
-from typing import Optional, Dict, List
+from settings import load_table
+
+from typing import Optional, Dict, List, Union
 
 from bs4 import BeautifulSoup
 
@@ -34,7 +36,7 @@ def split_message(text: str) -> List[str]:
     return [text[i:i + MAX_MESSAGE_LENGTH] for i in range(0, len(text), MAX_MESSAGE_LENGTH)]
 
 
-async def show_options(callback: types.CallbackQuery, data_dict: Dict[str, dict], exclude_key: str,
+async def show_options(obj: Union[types.CallbackQuery, types.Message], data_dict: Dict[str, dict], exclude_key: str,
                        action: Optional[str] = None) -> None:
     builder = InlineKeyboardBuilder()
     for key in data_dict.keys():
@@ -42,8 +44,12 @@ async def show_options(callback: types.CallbackQuery, data_dict: Dict[str, dict]
             builder.row(types.InlineKeyboardButton(text=key, callback_data=f'{action}_{key}'))
         else:
             builder.row(types.InlineKeyboardButton(text=key, callback_data=key))
-    await callback.message.answer(text=f'Выберите {exclude_key}', reply_markup=builder.as_markup())
-    await callback.answer()
+
+    if isinstance(obj, types.CallbackQuery):
+        await obj.message.answer(text=f'Выберите {exclude_key}', reply_markup=builder.as_markup())
+        await obj.answer()
+    elif isinstance(obj, types.Message):
+        await obj.answer(text=f'Выберите {exclude_key}', reply_markup=builder.as_markup())
 
 
 async def fetch_advertisement_data(advertisement: Dict[str, str], all_dict: Dict[str, str],
@@ -81,3 +87,47 @@ async def fetch_advertisement_data(advertisement: Dict[str, str], all_dict: Dict
                 return f'Для объявления "{url}" вышло время\n\n'
         else:
             return f'Для компании с id "{id_advertisement}" произошла ошибка запроса\n\n'
+
+
+async def get_balance(obj: Union[types.CallbackQuery, types.Message]) -> None:
+    boobs = {data['Client']: {'Boobs': data['Boobs'], 'Company': field} for field, data in load_table.companies.items()
+             if 'Boobs' in data}
+
+    if isinstance(obj, types.CallbackQuery):
+        await obj.message.answer('Идет загрузка баланса...')
+    else:
+        await obj.answer('Идет загрузка баланса...')
+
+    async with aiohttp.ClientSession() as session:
+        messages = []
+        for client_name, boob_value in boobs.items():
+            headers = {'Cookie': f"boobs={boob_value['Boobs']}"}
+            async with session.get(f'https://www.farpost.ru/personal/checkBalance/', headers=headers) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    balance = data.get('canSpend')
+                    messages.append(f'<b>Клиент</b>: {client_name} ({boob_value["Company"]}), <b>Баланс</b>: {balance}')
+                else:
+                    messages.append(f'Ошибка получения баланса для {client_name}')
+            session._cookie_jar._cookies.clear()
+
+        if isinstance(obj, types.CallbackQuery):
+            await obj.message.answer('\n'.join(messages), parse_mode='HTML')
+            await obj.answer()
+        else:
+            await obj.answer('\n'.join(messages), parse_mode='HTML')
+
+
+async def get_server(obj: Union[types.CallbackQuery, types.Message]) -> None:
+    buttons_command_server = [
+        [types.InlineKeyboardButton(text='Start', callback_data='start')],
+        [types.InlineKeyboardButton(text='Stop', callback_data='stop')],
+        [types.InlineKeyboardButton(text='Restart', callback_data='restart')],
+        [types.InlineKeyboardButton(text='Status', callback_data='status')]
+    ]
+    keyboard = types.InlineKeyboardMarkup(inline_keyboard=buttons_command_server)
+    if isinstance(obj, types.CallbackQuery):
+        await obj.message.answer(text='Выберите команду', reply_markup=keyboard)
+        await obj.answer()
+    else:
+        await obj.answer(text='Выберите команду', reply_markup=keyboard)
