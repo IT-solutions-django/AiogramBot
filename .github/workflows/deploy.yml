@@ -20,6 +20,7 @@ jobs:
         username: ${{ secrets.SERVER_USER }}
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         passphrase: ${{ secrets.SSH_PASSPHRASE }}
+        port: 22
         script: |
           cd /home/AiogramBot/AiogramBot/
           git pull origin main
