@@ -12,7 +12,7 @@ async def main() -> None:
     dp.include_router(command_handler.router)
     dp.include_router(callback_handler.router)
 
-    await dp.start_polling(bot)
+    await dp.start_polling(bot, skip_updates=True)
 
 
 if __name__ == "__main__":
