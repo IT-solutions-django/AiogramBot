@@ -1,3 +1,6 @@
+import asyncio
+
+import pytz
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram import types
 import aiohttp
@@ -112,7 +115,12 @@ async def fetch_advertisement_common(advertisement: Dict[str, str], all_dict: Di
     is_active_day: bool = current_day in active_day
     url: str = f'https://www.farpost.ru/{id_advertisement}/'
 
-    async with aiohttp.request('get', url, allow_redirects=True) as response:
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36',
+        'Referer': url
+    }
+
+    async with aiohttp.request('get', url, allow_redirects=True, headers=headers) as response:
         if response.status == 200:
             start_time: time = datetime.strptime(advertisement['start_time'], '%H.%M').time()
             end_time: time = datetime.strptime(advertisement['finish_time'], '%H.%M').time()
@@ -142,3 +150,53 @@ async def fetch_advertisement_common(advertisement: Dict[str, str], all_dict: Di
                     return f'Для объявления "{url}" вышло время\n\n'
         else:
             return f'Для компании с id "{id_advertisement}" произошла ошибка запроса\n\n'
+
+
+async def load_advertisements_data(company_name: str, company_boobs: str) -> Dict[str, str]:
+    headers = {'Cookie': f'boobs={company_boobs}'}
+    url = 'https://www.farpost.ru/personal/actual/bulletins'
+    async with aiohttp.request('get', url, headers=headers) as response:
+        if response.status == 200:
+            content = await response.text()
+            soup = BeautifulSoup(content, 'html.parser')
+
+            currencies = soup.find_all('div', class_='service-card-head__link serviceStick applied')
+            titles = soup.find_all('a', class_='bulletinLink bull-item__self-link auto-shy')
+
+            all_dict = {title['href']: div.text.strip().split(',')[1] for title, div in zip(titles, currencies)}
+            return all_dict
+    return {}
+
+
+async def handle_advertisements(callback: types.CallbackQuery, company_name: str, is_problem: bool):
+    company_boobs = load_table.companies[company_name].get('Boobs', '')
+
+    if not company_boobs:
+        await callback.message.answer('Для данной компании действие недоступно')
+        await callback.answer()
+        return
+
+    await callback.message.answer('Загружаем данные...')
+    all_dict = await load_advertisements_data(company_name, company_boobs)
+
+    company_advertisements = load_table.advertisements[company_name]
+    vladivostok_tz = pytz.timezone('Asia/Vladivostok')
+    vladivostok_time = datetime.now(vladivostok_tz).time()
+    current_day_vladivostok = datetime.now(vladivostok_tz).weekday()
+
+    tasks = [
+        fetch_advertisement_common(advertisement, all_dict, vladivostok_time, current_day_vladivostok, is_problem)
+        for advertisement in company_advertisements
+    ]
+
+    message_lines = await asyncio.gather(*tasks)
+    message = ''.join(message_lines)
+
+    if not message:
+        message = 'Для данной компании нет "проблемных" объявлений' if is_problem else 'Нет объявлений'
+
+    parts = split_message(message)
+    for part in parts:
+        await callback.message.answer(part, parse_mode='HTML')
+
+    await callback.answer()
