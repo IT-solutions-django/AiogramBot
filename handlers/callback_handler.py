@@ -139,8 +139,14 @@ async def get_options_price(callback: types.CallbackQuery):
                     currencies = soup.find_all('div', class_='service-card-head__link serviceStick applied')
                     titles = soup.find_all('a', class_='bulletinLink bull-item__self-link auto-shy')
 
-                    all_dict = {title['href']: div.text.strip().split(',')[1]
-                                for title, div in zip(titles, currencies)}
+                    all_dict = {
+                        re.search(r'-(\d+)\.html', title['href']).group(1):
+                            {
+                                'currencies': div.text.strip().split(',')[1],
+                                'name': title.text
+                            }
+                        for title, div in zip(titles, currencies)
+                    }
 
                     vladivostok_tz = pytz.timezone('Asia/Vladivostok')
                     vladivostok_time = datetime.now(vladivostok_tz).time()

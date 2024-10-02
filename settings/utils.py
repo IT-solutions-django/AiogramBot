@@ -1,5 +1,5 @@
 import asyncio
-import random
+import re
 
 import pytz
 from aiogram.utils.keyboard import InlineKeyboardBuilder
@@ -143,7 +143,7 @@ async def get_server(obj: Union[types.CallbackQuery, types.Message]) -> None:
         await obj.answer(text='Выберите команду', reply_markup=keyboard)
 
 
-async def fetch_advertisement_common(advertisement: Dict[str, str], all_dict: Dict[str, str],
+async def fetch_advertisement_common(advertisement: Dict[str, str], all_dict: Dict[str, Dict[str, str]],
                                      vladivostok_time: time, current_day: int,
                                      check_problems: bool = False) -> str:
     id_advertisement: str = advertisement['_id']
@@ -159,47 +159,30 @@ async def fetch_advertisement_common(advertisement: Dict[str, str], all_dict: Di
     is_active_day: bool = current_day in active_day
     url: str = f'https://www.farpost.ru/{id_advertisement}/'
 
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:114.0) Gecko/20100101 Firefox/114.0',
-        'Referer': url,
-        'Accept-Language': 'en-US,en;q=0.9'
-    }
+    start_time = datetime.strptime(advertisement['start_time'], '%H.%M').time()
+    end_time = datetime.strptime(advertisement['finish_time'], '%H.%M').time()
 
-    async with aiohttp.ClientSession(headers=headers) as session:
-        async with session.get(url, allow_redirects=True) as response:
-            if response.status == 200:
-                start_time = datetime.strptime(advertisement['start_time'], '%H.%M').time()
-                end_time = datetime.strptime(advertisement['finish_time'], '%H.%M').time()
-
-                if check_problems:
-                    if str(response.url) in all_dict and (
-                            not (start_time <= vladivostok_time <= end_time) or not is_active_day):
-                        return f'Для объявления "{url}" время вышло, но оно присутствует. Необходимо проверить данную информацию\n\n'
-                    elif not (str(response.url) in all_dict) and (
-                            start_time <= vladivostok_time <= end_time) and is_active_day:
-                        return f'Для объявления "{url}" время не вышло, но его нет. Необходимо проверить данную информацию\n\n'
-                    else:
-                        return ''
-                else:
-                    if str(response.url) in all_dict and (start_time <= vladivostok_time <= end_time) and is_active_day:
-                        content = await response.text()
-                        soup = BeautifulSoup(content, 'html.parser')
-                        title = soup.find('span', class_='inplace auto-shy')
-                        return f'{title.text} - {all_dict[str(response.url)]}\n\n'
-                    elif str(response.url) in all_dict and (
-                            not (start_time <= vladivostok_time <= end_time) or not is_active_day):
-                        return f'Для объявления "{url}" время вышло, но оно присутствует. Необходимо проверить данную информацию\n\n'
-                    elif not (str(response.url) in all_dict) and (
-                            start_time <= vladivostok_time <= end_time) and is_active_day:
-                        return f'Для объявления "{url}" время не вышло, но его нет. Необходимо проверить данную информацию\n\n'
-                    else:
-                        return f'Для объявления "{url}" вышло время\n\n'
-            else:
-                return f'Для компании с id "{advertisement["id"]}" произошла ошибка запроса\n\n'
-        session.cookies.clear()
+    if check_problems:
+        if id_advertisement in all_dict and (not (start_time <= vladivostok_time <= end_time) or not is_active_day):
+            return f'Для объявления "{url}" время вышло, но оно присутствует. Необходимо проверить данную информацию\n\n'
+        elif not (id_advertisement in all_dict) and (start_time <= vladivostok_time <= end_time) and is_active_day:
+            return f'Для объявления "{url}" время не вышло, но его нет. Необходимо проверить данную информацию\n\n'
+        else:
+            return ''
+    else:
+        if id_advertisement in all_dict and (start_time <= vladivostok_time <= end_time) and is_active_day:
+            return f'{all_dict[id_advertisement]['name']} - {all_dict[id_advertisement]['currencies']}\n\n'
+        elif id_advertisement in all_dict and (
+                not (start_time <= vladivostok_time <= end_time) or not is_active_day):
+            return f'Для объявления "{url}" время вышло, но оно присутствует. Необходимо проверить данную информацию\n\n'
+        elif not (id_advertisement in all_dict) and (
+                start_time <= vladivostok_time <= end_time) and is_active_day:
+            return f'Для объявления "{url}" время не вышло, но его нет. Необходимо проверить данную информацию\n\n'
+        else:
+            return f'Для объявления "{url}" вышло время\n\n'
 
 
-async def load_advertisements_data(company_name: str, company_boobs: str) -> Dict[str, str]:
+async def load_advertisements_data(company_name: str, company_boobs: str) -> Dict[str, Dict[str, str]]:
     headers = {'Cookie': f'boobs={company_boobs}'}
     url = 'https://www.farpost.ru/personal/actual/bulletins'
     async with aiohttp.request('get', url, headers=headers) as response:
@@ -210,7 +193,14 @@ async def load_advertisements_data(company_name: str, company_boobs: str) -> Dic
             currencies = soup.find_all('div', class_='service-card-head__link serviceStick applied')
             titles = soup.find_all('a', class_='bulletinLink bull-item__self-link auto-shy')
 
-            all_dict = {title['href']: div.text.strip().split(',')[1] for title, div in zip(titles, currencies)}
+            all_dict = {
+                re.search(r'-(\d+)\.html', title['href']).group(1):
+                    {
+                        'currencies': div.text.strip().split(',')[1],
+                        'name': title.text
+                    }
+                for title, div in zip(titles, currencies)
+            }
             return all_dict
     return {}
 
