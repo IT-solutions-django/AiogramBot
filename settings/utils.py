@@ -194,6 +194,7 @@ async def fetch_advertisement_common(advertisement: Dict[str, str], all_dict: Di
                         return f'Для объявления "{url}" вышло время\n\n'
             else:
                 return f'Для компании с id "{advertisement["id"]}" произошла ошибка запроса\n\n'
+        session.cookies.clear()
 
 
 async def load_advertisements_data(company_name: str, company_boobs: str) -> Dict[str, str]:
