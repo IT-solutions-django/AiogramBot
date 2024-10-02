@@ -159,8 +159,9 @@ async def fetch_advertisement_common(advertisement: Dict[str, str], all_dict: Di
     url: str = f'https://www.farpost.ru/{id_advertisement}/'
 
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36',
-        'Referer': url
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:114.0) Gecko/20100101 Firefox/114.0',
+        'Referer': url,
+        'Accept-Language': 'en-US,en;q=0.9'
     }
 
     async with aiohttp.ClientSession(headers=headers) as session:
