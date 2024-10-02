@@ -15,6 +15,10 @@ from datetime import datetime, time
 
 import logging
 
+import locale
+
+locale.setlocale(locale.LC_TIME, 'ru_RU.UTF-8')
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
@@ -59,29 +63,68 @@ async def get_balance(obj: Union[types.CallbackQuery, types.Message]) -> None:
     boobs = {data['Client']: {'Boobs': data['Boobs'], 'Company': field} for field, data in load_table.companies.items()
              if 'Boobs' in data}
 
+    today_date = datetime.now().strftime('%Y-%m-%d')
+    today_date_json = datetime.now().strftime('%-d %B')
+
     if isinstance(obj, types.CallbackQuery):
         await obj.message.answer('Идет загрузка баланса...')
     else:
         await obj.answer('Идет загрузка баланса...')
 
     async with aiohttp.ClientSession() as session:
-        messages = []
+        tasks = []
         for client_name, boob_value in boobs.items():
             headers = {'Cookie': f"boobs={boob_value['Boobs']}"}
-            async with session.get(f'https://www.farpost.ru/personal/checkBalance/', headers=headers) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    balance = data.get('canSpend')
-                    messages.append(f'<b>Клиент</b>: {client_name} ({boob_value["Company"]}), <b>Баланс</b>: {balance}')
-                else:
-                    messages.append(f'Ошибка получения баланса для {client_name}')
-            session._cookie_jar._cookies.clear()
+            balance_url = f'https://www.farpost.ru/personal/checkBalance/'
+            details_url = f'https://www.farpost.ru/personal/balance/details?date={today_date}&page=1'
+
+            tasks.append(
+                fetch_data_balance(session, client_name, boob_value, balance_url, details_url, headers,
+                                   today_date_json))
+
+        results = await asyncio.gather(*tasks)
+
+        messages = [result for result in results if result]
 
         if isinstance(obj, types.CallbackQuery):
             await obj.message.answer('\n'.join(messages), parse_mode='HTML')
             await obj.answer()
         else:
             await obj.answer('\n'.join(messages), parse_mode='HTML')
+
+
+async def fetch_data_balance(session, client_name, boob_value, balance_url, details_url, headers, today_date_json):
+    messages = []
+    try:
+        async with session.get(balance_url, headers=headers) as balance_response:
+            if balance_response.status == 200:
+                balance_data = await balance_response.json()
+                balance = balance_data.get('canSpend')
+                messages.append(f'<b>Клиент</b>: {client_name} ({boob_value["Company"]}), <b>Баланс</b>: {balance}.')
+            else:
+                messages.append(f'Ошибка получения баланса для {client_name}')
+
+        async with session.get(details_url, headers=headers) as details_response:
+            if details_response.status == 200:
+                details_data = await details_response.json()
+                transactions = details_data['data'].get('transactions', [])
+                for day_data in transactions:
+                    if day_data['date'] == today_date_json:
+                        day_transactions = day_data['transactions']
+                        replenishments = [trans for trans in day_transactions if
+                                          'пополнение' in trans['description']['text'].lower()]
+                        if replenishments:
+                            messages.append(
+                                f'<b>Пополнения</b> для {client_name}: {len(replenishments)} пополнение(ий) сегодня.\n')
+                        else:
+                            messages.append(f'Для {client_name} сегодня пополнений не было.\n')
+                        break
+            else:
+                messages.append(f'Ошибка при получении данных о пополнении для {client_name}')
+    except Exception as e:
+        messages.append(f'Ошибка для {client_name}: {str(e)}')
+
+    return '\n'.join(messages)
 
 
 async def get_server(obj: Union[types.CallbackQuery, types.Message]) -> None:
