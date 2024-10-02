@@ -231,16 +231,10 @@ async def handle_advertisements(callback: types.CallbackQuery, company_name: str
     vladivostok_time = datetime.now(vladivostok_tz).time()
     current_day_vladivostok = datetime.now(vladivostok_tz).weekday()
 
-    # tasks = [
-    #     fetch_advertisement_common(advertisement, all_dict, vladivostok_time, current_day_vladivostok, is_problem)
-    #     for advertisement in company_advertisements
-    # ]
-
-    tasks = []
-    for advertisement in company_advertisements:
-        tasks.append(
-            fetch_advertisement_common(advertisement, all_dict, vladivostok_time, current_day_vladivostok, is_problem))
-        await asyncio.sleep(random.uniform(1, 3))
+    tasks = [
+        fetch_advertisement_common(advertisement, all_dict, vladivostok_time, current_day_vladivostok, is_problem)
+        for advertisement in company_advertisements
+    ]
 
     message_lines = await asyncio.gather(*tasks)
     message = ''.join(message_lines)
