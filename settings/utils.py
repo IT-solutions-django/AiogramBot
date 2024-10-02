@@ -171,7 +171,7 @@ async def fetch_advertisement_common(advertisement: Dict[str, str], all_dict: Di
             return ''
     else:
         if id_advertisement in all_dict and (start_time <= vladivostok_time <= end_time) and is_active_day:
-            return f'{all_dict[id_advertisement]['name']} - {all_dict[id_advertisement]['currencies']}\n\n'
+            return f'{all_dict[id_advertisement]["name"]} - {all_dict[id_advertisement]["currencies"]}\n\n'
         elif id_advertisement in all_dict and (
                 not (start_time <= vladivostok_time <= end_time) or not is_active_day):
             return f'Для объявления "{url}" время вышло, но оно присутствует. Необходимо проверить данную информацию\n\n'
