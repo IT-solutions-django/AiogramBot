@@ -163,36 +163,37 @@ async def fetch_advertisement_common(advertisement: Dict[str, str], all_dict: Di
         'Referer': url
     }
 
-    async with aiohttp.request('get', url, allow_redirects=True, headers=headers) as response:
-        if response.status == 200:
-            start_time: time = datetime.strptime(advertisement['start_time'], '%H.%M').time()
-            end_time: time = datetime.strptime(advertisement['finish_time'], '%H.%M').time()
+    async with aiohttp.ClientSession(headers=headers) as session:
+        async with session.get(url, allow_redirects=True) as response:
+            if response.status == 200:
+                start_time = datetime.strptime(advertisement['start_time'], '%H.%M').time()
+                end_time = datetime.strptime(advertisement['finish_time'], '%H.%M').time()
 
-            if check_problems:
-                if str(response.url) in all_dict and (
-                        not (start_time <= vladivostok_time <= end_time) or not is_active_day):
-                    return f'Для объявления "{url}" время вышло, но оно присутствует. Необходимо проверить данную информацию\n\n'
-                elif not (str(response.url) in all_dict) and (
-                        start_time <= vladivostok_time <= end_time) and is_active_day:
-                    return f'Для объявления "{url}" время не вышло, но его нет. Необходимо проверить данную информацию\n\n'
+                if check_problems:
+                    if str(response.url) in all_dict and (
+                            not (start_time <= vladivostok_time <= end_time) or not is_active_day):
+                        return f'Для объявления "{url}" время вышло, но оно присутствует. Необходимо проверить данную информацию\n\n'
+                    elif not (str(response.url) in all_dict) and (
+                            start_time <= vladivostok_time <= end_time) and is_active_day:
+                        return f'Для объявления "{url}" время не вышло, но его нет. Необходимо проверить данную информацию\n\n'
+                    else:
+                        return ''
                 else:
-                    return ''
+                    if str(response.url) in all_dict and (start_time <= vladivostok_time <= end_time) and is_active_day:
+                        content = await response.text()
+                        soup = BeautifulSoup(content, 'html.parser')
+                        title = soup.find('span', class_='inplace auto-shy')
+                        return f'{title.text} - {all_dict[str(response.url)]}\n\n'
+                    elif str(response.url) in all_dict and (
+                            not (start_time <= vladivostok_time <= end_time) or not is_active_day):
+                        return f'Для объявления "{url}" время вышло, но оно присутствует. Необходимо проверить данную информацию\n\n'
+                    elif not (str(response.url) in all_dict) and (
+                            start_time <= vladivostok_time <= end_time) and is_active_day:
+                        return f'Для объявления "{url}" время не вышло, но его нет. Необходимо проверить данную информацию\n\n'
+                    else:
+                        return f'Для объявления "{url}" вышло время\n\n'
             else:
-                if str(response.url) in all_dict and (start_time <= vladivostok_time <= end_time) and is_active_day:
-                    content: str = await response.text()
-                    soup: BeautifulSoup = BeautifulSoup(content, 'html.parser')
-                    title = soup.find('span', class_='inplace auto-shy')
-                    return f'{title.text} - {all_dict[str(response.url)]}\n\n'
-                elif str(response.url) in all_dict and (
-                        not (start_time <= vladivostok_time <= end_time) or not is_active_day):
-                    return f'Для объявления "{url}" время вышло, но оно присутствует. Необходимо проверить данную информацию\n\n'
-                elif not (str(response.url) in all_dict) and (
-                        start_time <= vladivostok_time <= end_time) and is_active_day:
-                    return f'Для объявления "{url}" время не вышло, но его нет. Необходимо проверить данную информацию\n\n'
-                else:
-                    return f'Для объявления "{url}" вышло время\n\n'
-        else:
-            return f'Для компании с id "{id_advertisement}" произошла ошибка запроса\n\n'
+                return f'Для компании с id "{advertisement["id"]}" произошла ошибка запроса\n\n'
 
 
 async def load_advertisements_data(company_name: str, company_boobs: str) -> Dict[str, str]:
