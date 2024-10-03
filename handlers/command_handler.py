@@ -1,9 +1,9 @@
 from aiogram.filters import Command
 from aiogram import types
 from aiogram import Router
-
 from settings.utils import show_options, get_balance, get_server
 from settings import load_table
+from settings.static import Message
 
 router = Router()
 
@@ -26,7 +26,7 @@ async def send_welcome(message: types.Message) -> None:
     ]
 
     keyboard = types.InlineKeyboardMarkup(inline_keyboard=buttons_start)
-    await message.answer("Выберите действие:", reply_markup=keyboard)
+    await message.answer(Message.CHOICE_COMMAND.value, reply_markup=keyboard)
 
 
 @router.message(Command("get_company_info"))

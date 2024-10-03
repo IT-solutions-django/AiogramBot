@@ -24,3 +24,9 @@ class Urls(Enum):
 class SshData(Enum):
     IP: str = '217.18.62.157'
     USERNAME: str = 'root'
+
+
+class Message(Enum):
+    LOAD_COMMAND: str = 'Идет выполнение команды...'
+    CHOICE_COMMAND: str = 'Выберите команду'
+    ERROR_COMMAND: str = 'Для данной компании действие недоступно'

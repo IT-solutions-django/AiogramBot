@@ -8,6 +8,7 @@ import re
 import logging
 from settings.utils import split_message, show_options, get_balance, get_server, \
     handle_advertisements, execute_ssh_command, get_service_logs, fetch_data_for_advertisement
+from settings.static import Message
 
 if not load_table.companies or not load_table.advertisements_options or not load_table.advertisements:
     logging.info('Началась загрузка данных')
@@ -64,7 +65,7 @@ async def get_command_server(callback: types.CallbackQuery) -> None:
 async def command_server(callback: types.CallbackQuery) -> None:
     command = callback.data
 
-    await callback.message.answer('Идет выполнение команды...')
+    await callback.message.answer(Message.LOAD_COMMAND.value)
 
     service_command = f'systemctl {command} 100_cctv.service'
     output, error = await execute_ssh_command(service_command)
@@ -98,7 +99,7 @@ async def get_options_price(callback: types.CallbackQuery):
     options = callback.data.split("options_price_")[1]
     advertisements_options = load_table.advertisements_options[options]
 
-    await callback.message.answer('Загружаем данные...')
+    await callback.message.answer(Message.LOAD_COMMAND.value)
 
     tasks = [fetch_data_for_advertisement(advertisements) for advertisements in advertisements_options]
     results = await asyncio.gather(*tasks)

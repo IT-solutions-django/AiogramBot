@@ -58,9 +58,9 @@ async def get_balance(obj: Union[types.CallbackQuery, types.Message]) -> None:
     today_date_json = datetime.now().strftime('%-d %B')
 
     if isinstance(obj, types.CallbackQuery):
-        await obj.message.answer('Идет загрузка баланса...')
+        await obj.message.answer(static.Message.LOAD_COMMAND.value)
     else:
-        await obj.answer('Идет загрузка баланса...')
+        await obj.answer(static.Message.LOAD_COMMAND.value)
 
     async with aiohttp.ClientSession() as session:
         tasks = []
@@ -127,10 +127,10 @@ async def get_server(obj: Union[types.CallbackQuery, types.Message]) -> None:
     ]
     keyboard = types.InlineKeyboardMarkup(inline_keyboard=buttons_command_server)
     if isinstance(obj, types.CallbackQuery):
-        await obj.message.answer(text='Выберите команду', reply_markup=keyboard)
+        await obj.message.answer(text=static.Message.CHOICE_COMMAND.value, reply_markup=keyboard)
         await obj.answer()
     else:
-        await obj.answer(text='Выберите команду', reply_markup=keyboard)
+        await obj.answer(text=static.Message.CHOICE_COMMAND.value, reply_markup=keyboard)
 
 
 async def fetch_advertisement_common(advertisement: Dict[str, str], all_dict: Dict[str, Dict[str, str]],
@@ -199,11 +199,11 @@ async def handle_advertisements(callback: types.CallbackQuery, company_name: str
     company_boobs = load_table.companies[company_name].get('Boobs', '')
 
     if not company_boobs:
-        await callback.message.answer('Для данной компании действие недоступно')
+        await callback.message.answer(static.Message.ERROR_COMMAND.value)
         await callback.answer()
         return
 
-    await callback.message.answer('Загружаем данные...')
+    await callback.message.answer(static.Message.LOAD_COMMAND.value)
     all_dict = await load_advertisements_data(company_name, company_boobs)
 
     company_advertisements = load_table.advertisements[company_name]
