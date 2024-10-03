@@ -1,22 +1,17 @@
 import asyncio
 import re
-
 import pytz
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram import types
 import aiohttp
-
 from settings import load_table
-
 from typing import Optional, Dict, List, Union
-
 from bs4 import BeautifulSoup
-
 from datetime import datetime, time
-
 import logging
-
 import locale
+import paramiko
+from dotenv import dotenv_values
 
 locale.setlocale(locale.LC_TIME, 'ru_RU.UTF-8')
 
@@ -237,3 +232,58 @@ async def handle_advertisements(callback: types.CallbackQuery, company_name: str
         await callback.message.answer(part, parse_mode='HTML')
 
     await callback.answer()
+
+
+async def execute_ssh_command(command: str) -> tuple:
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect('217.18.62.157', username='root', password=dotenv_values(".env")['PASSWORD_SSH'])
+
+    stdin, stdout, stderr = ssh.exec_command(command)
+    output = stdout.read().decode('utf-8')
+    error = stderr.read().decode('utf-8')
+    ssh.close()
+
+    return output, error
+
+
+async def get_service_logs() -> tuple:
+    log_command = 'journalctl -u 100_cctv.service -n 5'
+    return await execute_ssh_command(log_command)
+
+
+async def fetch_data_for_advertisement(advertisements) -> str:
+    company_boobs = load_table.companies[advertisements['client']].get('Boobs', '')
+    if company_boobs:
+        headers = {'Cookie': f'boobs={company_boobs}'}
+        url = 'https://www.farpost.ru/personal/actual/bulletins'
+
+        async with aiohttp.request('get', url, headers=headers) as response:
+            if response.status == 200:
+                content = await response.text()
+                soup = BeautifulSoup(content, 'html.parser')
+
+                currencies = soup.find_all('div', class_='service-card-head__link serviceStick applied')
+                titles = soup.find_all('a', class_='bulletinLink bull-item__self-link auto-shy')
+
+                all_dict = {
+                    re.search(r'-(\d+)\.html', title['href']).group(1):
+                        {
+                            'currencies': div.text.strip().split(',')[1],
+                            'name': title.text
+                        }
+                    for title, div in zip(titles, currencies)
+                }
+
+                vladivostok_tz = pytz.timezone('Asia/Vladivostok')
+                vladivostok_time = datetime.now(vladivostok_tz).time()
+                current_day_vladivostok = datetime.now(vladivostok_tz).weekday()
+
+                task = await fetch_advertisement_common(advertisements, all_dict, vladivostok_time,
+                                                        current_day_vladivostok, False)
+
+                return f'Компания "{advertisements["client"]}". ' + task
+            else:
+                return f'Ошибка получения данных для {advertisements["client"]}\n\n'
+    else:
+        return f'Для компании "{advertisements["client"]} - {advertisements["city"]}" действие недоступно\n\n'

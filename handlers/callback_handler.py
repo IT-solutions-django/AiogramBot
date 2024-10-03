@@ -1,25 +1,15 @@
 import asyncio
-
 from aiogram import types
 from aiogram import F, Router
 import aiohttp
-
-import paramiko
-
 from settings import load_table
-
 from bs4 import BeautifulSoup
-
 from datetime import datetime
 import pytz
-
 import re
 import logging
-
-from dotenv import dotenv_values
-
 from settings.utils import split_message, show_options, get_balance, get_server, fetch_advertisement_common, \
-    handle_advertisements
+    handle_advertisements, execute_ssh_command, get_service_logs, fetch_data_for_advertisement
 
 if not load_table.companies or not load_table.advertisements_options or not load_table.advertisements:
     logging.info('Началась загрузка данных')
@@ -78,21 +68,8 @@ async def command_server(callback: types.CallbackQuery) -> None:
 
     await callback.message.answer('Идет выполнение команды...')
 
-    ssh = paramiko.SSHClient()
-    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect('217.18.62.157', username='root', password=dotenv_values(".env")['PASSWORD_SSH'])
-
-    stdin, stdout, stderr = ssh.exec_command(f'systemctl {command} 100_cctv.service')
-    output = stdout.read().decode('utf-8')
-    error = stderr.read().decode('utf-8')
-
-    if command in ['start', 'stop', 'restart']:
-        log_command = f'journalctl -u 100_cctv.service -n 5'
-        stdin_log, stdout_log, stderr_log = ssh.exec_command(log_command)
-        log_output = stdout_log.read().decode('utf-8')
-        log_error = stderr_log.read().decode('utf-8')
-
-    ssh.close()
+    service_command = f'systemctl {command} 100_cctv.service'
+    output, error = await execute_ssh_command(service_command)
 
     if error:
         await callback.message.answer(f'Ошибка при выполнении команды: {error.strip()}')
@@ -109,6 +86,7 @@ async def command_server(callback: types.CallbackQuery) -> None:
             else:
                 await callback.message.answer(f'Не удалось извлечь статус службы.')
         elif command in ['start', 'stop', 'restart']:
+            log_output, log_error = await get_service_logs()
             if log_error:
                 await callback.message.answer(f'Ошибка при чтении журнала: {log_error.strip()}')
             else:
@@ -123,43 +101,6 @@ async def get_options_price(callback: types.CallbackQuery):
     advertisements_options = load_table.advertisements_options[options]
 
     await callback.message.answer('Загружаем данные...')
-
-    async def fetch_data_for_advertisement(advertisements):
-        company_boobs = load_table.companies[advertisements['client']].get('Boobs', '')
-        if company_boobs:
-            headers = {'Cookie': f'boobs={company_boobs}'}
-            url = 'https://www.farpost.ru/personal/actual/bulletins'
-
-            async with aiohttp.request('get', url, headers=headers) as response:
-                if response.status == 200:
-                    content = await response.text()
-
-                    soup = BeautifulSoup(content, 'html.parser')
-
-                    currencies = soup.find_all('div', class_='service-card-head__link serviceStick applied')
-                    titles = soup.find_all('a', class_='bulletinLink bull-item__self-link auto-shy')
-
-                    all_dict = {
-                        re.search(r'-(\d+)\.html', title['href']).group(1):
-                            {
-                                'currencies': div.text.strip().split(',')[1],
-                                'name': title.text
-                            }
-                        for title, div in zip(titles, currencies)
-                    }
-
-                    vladivostok_tz = pytz.timezone('Asia/Vladivostok')
-                    vladivostok_time = datetime.now(vladivostok_tz).time()
-                    current_day_vladivostok = datetime.now(vladivostok_tz).weekday()
-
-                    task = await fetch_advertisement_common(advertisements, all_dict, vladivostok_time,
-                                                            current_day_vladivostok, False)
-
-                    return f'Компания "{advertisements["client"]}". ' + task
-                else:
-                    return f'Ошибка получения данных для {advertisements["client"]}\n\n'
-        else:
-            return f'Для компании "{advertisements["client"]} - {advertisements["city"]}" действие недоступно\n\n'
 
     tasks = [fetch_data_for_advertisement(advertisements) for advertisements in advertisements_options]
     results = await asyncio.gather(*tasks)
