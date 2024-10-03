@@ -13,6 +13,7 @@ import locale
 import paramiko
 from dotenv import dotenv_values
 from settings import static
+from keyboards.keyboard import buttons_command_server
 
 locale.setlocale(locale.LC_TIME, 'ru_RU.UTF-8')
 
@@ -119,12 +120,6 @@ async def fetch_data_balance(session, client_name, boob_value, balance_url, deta
 
 
 async def get_server(obj: Union[types.CallbackQuery, types.Message]) -> None:
-    buttons_command_server = [
-        [types.InlineKeyboardButton(text='Start', callback_data='start')],
-        [types.InlineKeyboardButton(text='Stop', callback_data='stop')],
-        [types.InlineKeyboardButton(text='Restart', callback_data='restart')],
-        [types.InlineKeyboardButton(text='Status', callback_data='status')]
-    ]
     keyboard = types.InlineKeyboardMarkup(inline_keyboard=buttons_command_server)
     if isinstance(obj, types.CallbackQuery):
         await obj.message.answer(text=static.Message.CHOICE_COMMAND.value, reply_markup=keyboard)
