@@ -1,14 +1,12 @@
 import asyncio
 from aiogram import types
 from aiogram import F, Router
-import aiohttp
 from settings import load_table
-from bs4 import BeautifulSoup
 from datetime import datetime
 import pytz
 import re
 import logging
-from settings.utils import split_message, show_options, get_balance, get_server, fetch_advertisement_common, \
+from settings.utils import split_message, show_options, get_balance, get_server, \
     handle_advertisements, execute_ssh_command, get_service_logs, fetch_data_for_advertisement
 
 if not load_table.companies or not load_table.advertisements_options or not load_table.advertisements:

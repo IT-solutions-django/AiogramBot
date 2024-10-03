@@ -12,6 +12,7 @@ import logging
 import locale
 import paramiko
 from dotenv import dotenv_values
+from settings import static
 
 locale.setlocale(locale.LC_TIME, 'ru_RU.UTF-8')
 
@@ -19,24 +20,18 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 
 def is_day_active() -> Dict[str, set]:
-    weekdays = {0, 1, 2, 3, 4}
-    all_days_except_sunday = {0, 1, 2, 3, 4, 5}
-    full_week = {0, 1, 2, 3, 4, 5, 6}
-
     day_info_map = {
-        'Будни': weekdays,
-        'Кроме ВС': all_days_except_sunday,
-        'Все': full_week,
+        'Будни': static.DayActiveMap.WEEKDAYS.value,
+        'Кроме ВС': static.DayActiveMap.ALL_DAYS_EXCEPT_SUNDAY.value,
+        'Все': static.DayActiveMap.FULL_WEEK.value,
     }
 
     return day_info_map
 
 
-MAX_MESSAGE_LENGTH: int = 4096
-
-
 def split_message(text: str) -> List[str]:
-    return [text[i:i + MAX_MESSAGE_LENGTH] for i in range(0, len(text), MAX_MESSAGE_LENGTH)]
+    return [text[i:i + static.MessageLength.MAX_MESSAGE_LENGTH.value] for i in
+            range(0, len(text), static.MessageLength.MAX_MESSAGE_LENGTH.value)]
 
 
 async def show_options(obj: Union[types.CallbackQuery, types.Message], data_dict: Dict[str, dict], exclude_key: str,
@@ -71,8 +66,8 @@ async def get_balance(obj: Union[types.CallbackQuery, types.Message]) -> None:
         tasks = []
         for client_name, boob_value in boobs.items():
             headers = {'Cookie': f"boobs={boob_value['Boobs']}"}
-            balance_url = f'https://www.farpost.ru/personal/checkBalance/'
-            details_url = f'https://www.farpost.ru/personal/balance/details?date={today_date}&page=1'
+            balance_url = static.Urls.BALANCE_URL.value
+            details_url = static.Urls.DETAILS_URL.get_url(date=today_date)
 
             tasks.append(
                 fetch_data_balance(session, client_name, boob_value, balance_url, details_url, headers,
@@ -152,7 +147,7 @@ async def fetch_advertisement_common(advertisement: Dict[str, str], all_dict: Di
         return f'Для объявления "{id_advertisement}" активный день не определён. Требуется обновление.\n\n'
 
     is_active_day: bool = current_day in active_day
-    url: str = f'https://www.farpost.ru/{id_advertisement}/'
+    url: str = static.Urls.URL_ADVERTISEMENT.get_url(id_advertisement=id_advertisement)
 
     start_time = datetime.strptime(advertisement['start_time'], '%H.%M').time()
     end_time = datetime.strptime(advertisement['finish_time'], '%H.%M').time()
@@ -178,8 +173,8 @@ async def fetch_advertisement_common(advertisement: Dict[str, str], all_dict: Di
 
 
 async def load_advertisements_data(company_name: str, company_boobs: str) -> Dict[str, Dict[str, str]]:
-    headers = {'Cookie': f'boobs={company_boobs}'}
-    url = 'https://www.farpost.ru/personal/actual/bulletins'
+    headers: Dict[str, str] = {'Cookie': f'boobs={company_boobs}'}
+    url: str = static.Urls.URL_ACTUAL_BULLETINS.value
     async with aiohttp.request('get', url, headers=headers) as response:
         if response.status == 200:
             content = await response.text()
@@ -237,7 +232,8 @@ async def handle_advertisements(callback: types.CallbackQuery, company_name: str
 async def execute_ssh_command(command: str) -> tuple:
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect('217.18.62.157', username='root', password=dotenv_values(".env")['PASSWORD_SSH'])
+    ssh.connect(static.SshData.IP.value, username=static.SshData.USERNAME.value,
+                password=dotenv_values(".env")['PASSWORD_SSH'])
 
     stdin, stdout, stderr = ssh.exec_command(command)
     output = stdout.read().decode('utf-8')
@@ -256,7 +252,7 @@ async def fetch_data_for_advertisement(advertisements) -> str:
     company_boobs = load_table.companies[advertisements['client']].get('Boobs', '')
     if company_boobs:
         headers = {'Cookie': f'boobs={company_boobs}'}
-        url = 'https://www.farpost.ru/personal/actual/bulletins'
+        url = static.Urls.URL_ACTUAL_BULLETINS.value
 
         async with aiohttp.request('get', url, headers=headers) as response:
             if response.status == 200:
