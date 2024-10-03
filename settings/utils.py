@@ -8,16 +8,14 @@ from settings import load_table
 from typing import Optional, Dict, List, Union
 from bs4 import BeautifulSoup
 from datetime import datetime, time
-import logging
 import locale
 import paramiko
 from dotenv import dotenv_values
 from settings import static
 from keyboards.keyboard import buttons_command_server
+import logging
 
 locale.setlocale(locale.LC_TIME, 'ru_RU.UTF-8')
-
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
 def is_day_active() -> Dict[str, set]:
