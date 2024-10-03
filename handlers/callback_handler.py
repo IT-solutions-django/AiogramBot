@@ -5,15 +5,15 @@ from settings import load_table
 from datetime import datetime
 import pytz
 import re
-import logging
+from settings.logging_settings import logger
 from settings.utils import split_message, show_options, get_balance, get_server, \
     handle_advertisements, execute_ssh_command, get_service_logs, fetch_data_for_advertisement
 from settings.static import Message
 
 if not load_table.companies or not load_table.advertisements_options or not load_table.advertisements:
-    logging.info('Началась загрузка данных')
+    logger.info('Началась загрузка данных')
     load_table.load_companies_from_sheet(load_table.service)
-    logging.info('Загрузка данных завершилась')
+    logger.info('Загрузка данных завершилась')
 
 router = Router()
 

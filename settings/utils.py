@@ -13,7 +13,7 @@ import paramiko
 from dotenv import dotenv_values
 from settings import static
 from keyboards.keyboard import buttons_command_server
-import logging
+from settings.logging_settings import logger
 
 locale.setlocale(locale.LC_TIME, 'ru_RU.UTF-8')
 
@@ -135,7 +135,7 @@ async def fetch_advertisement_common(advertisement: Dict[str, str], all_dict: Di
     active_day: Optional[set] = active_day_map.get(advertisement['weekday_active'], None)
 
     if active_day is None:
-        logging.warning(
+        logger.warning(
             f"Активный день для объявления '{id_advertisement}' не найден. Пожалуйста, добавьте его в active_day_map.")
         return f'Для объявления "{id_advertisement}" активный день не определён. Требуется обновление.\n\n'
 
