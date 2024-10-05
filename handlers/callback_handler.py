@@ -44,6 +44,10 @@ async def callback_get_company_options(callback: types.CallbackQuery) -> None:
             message_lines.append(f'ОБЪЯВЛЕНИЕ {idx}:')
             message_lines.extend([f'{field}: {data}' for field, data in info.items()])
             message_lines.append('\n')
+
+    if len(message_lines) == 1:
+        message_lines.append('Нет подключенных объявлений')
+
     message = '\n'.join(message_lines)
 
     parts = split_message(message)
@@ -140,6 +144,10 @@ async def callback_get_company_values(callback: types.CallbackQuery) -> None:
                 message_lines.append(f'ОБЪЯВЛЕНИЕ {idx}:')
                 message_lines.extend([f'{field}: {data}' for field, data in info.items()])
                 message_lines.append('\n')
+
+        if len(message_lines) == 1:
+            message_lines.append('Нет подключенных объявлений')
+
         message = '\n'.join(message_lines)
 
     elif action == 'price':
