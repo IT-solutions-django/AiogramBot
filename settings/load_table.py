@@ -3,7 +3,7 @@ from typing import List, Dict, Optional, Any
 
 service = main()
 
-SPREADSHEET_ID: str = '1N4nlS9ph1N3PGBPIVcYxbtXRqcEE4GnAijZIC1pzBgI'
+SPREADSHEET_ID: str = '18GpffNyktdFoD_p1o2VtE-UKc2Fju3QAjQrhAf2zpbc'
 RANGE_NAME: str = 'Клиенты!A1:I'
 RANGE_NAME_2: str = 'JSON!A1:AB'
 

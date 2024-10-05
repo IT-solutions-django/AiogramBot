@@ -109,6 +109,8 @@ async def fetch_data_balance(session, client_name, boob_value, balance_url, deta
                         else:
                             messages.append(f'Для {client_name} сегодня пополнений не было.\n')
                         break
+                else:
+                    messages.append(f'Для {client_name} сегодня пополнений не было.\n')
             else:
                 messages.append(f'Ошибка при получении данных о пополнении для {client_name}')
     except Exception as e:
@@ -142,8 +144,8 @@ async def fetch_advertisement_common(advertisement: Dict[str, str], all_dict: Di
     is_active_day: bool = current_day in active_day
     url: str = static.Urls.URL_ADVERTISEMENT.get_url(id_advertisement=id_advertisement)
 
-    start_time = datetime.strptime(advertisement['start_time'], '%H.%M').time()
-    end_time = datetime.strptime(advertisement['finish_time'], '%H.%M').time()
+    start_time = datetime.strptime(advertisement['start_time'].strip(), '%H.%M').time()
+    end_time = datetime.strptime(advertisement['finish_time'].strip(), '%H.%M').time()
 
     if check_problems:
         if id_advertisement in all_dict and (not (start_time <= vladivostok_time <= end_time) or not is_active_day):
@@ -173,13 +175,13 @@ async def load_advertisements_data(company_name: str, company_boobs: str) -> Dic
             content = await response.text()
             soup = BeautifulSoup(content, 'html.parser')
 
-            currencies = soup.find_all('div', class_='service-card-head__link serviceStick applied')
+            currencies = soup.find_all('div', class_='service-card-head__link')
             titles = soup.find_all('a', class_='bulletinLink bull-item__self-link auto-shy')
 
             all_dict = {
                 re.search(r'-(\d+)\.html', title['href']).group(1):
                     {
-                        'currencies': div.text.strip().split(',')[1],
+                        'currencies': div.text.strip(),
                         'name': title.text
                     }
                 for title, div in zip(titles, currencies)
@@ -207,6 +209,7 @@ async def handle_advertisements(callback: types.CallbackQuery, company_name: str
     tasks = [
         fetch_advertisement_common(advertisement, all_dict, vladivostok_time, current_day_vladivostok, is_problem)
         for advertisement in company_advertisements
+        if advertisement['status'] == 'Подключено'
     ]
 
     message_lines = await asyncio.gather(*tasks)
@@ -252,13 +255,13 @@ async def fetch_data_for_advertisement(advertisements) -> str:
                 content = await response.text()
                 soup = BeautifulSoup(content, 'html.parser')
 
-                currencies = soup.find_all('div', class_='service-card-head__link serviceStick applied')
+                currencies = soup.find_all('div', class_='service-card-head__link')
                 titles = soup.find_all('a', class_='bulletinLink bull-item__self-link auto-shy')
 
                 all_dict = {
                     re.search(r'-(\d+)\.html', title['href']).group(1):
                         {
-                            'currencies': div.text.strip().split(',')[1],
+                            'currencies': div.text.strip(),
                             'name': title.text
                         }
                     for title, div in zip(titles, currencies)
@@ -276,3 +279,34 @@ async def fetch_data_for_advertisement(advertisements) -> str:
                 return f'Ошибка получения данных для {advertisements["client"]}\n\n'
     else:
         return f'Для компании "{advertisements["client"]} - {advertisements["city"]}" действие недоступно\n\n'
+
+
+async def problems_advertisements():
+    vladivostok_tz = pytz.timezone('Asia/Vladivostok')
+    vladivostok_time = datetime.now(vladivostok_tz).time()
+    current_day_vladivostok = datetime.now(vladivostok_tz).weekday()
+
+    advertisements = load_table.advertisements
+    companies = load_table.companies
+
+    task_all_dict = [
+        load_advertisements_data(company, companies[company].get('Boobs', ''))
+        for company in advertisements
+        if companies[company].get('Boobs', '')
+    ]
+
+    all_dict = await asyncio.gather(*task_all_dict)
+    merged_dict = {k: v for d in all_dict for k, v in d.items()}
+
+    task_result = [
+        fetch_advertisement_common(advertisement, merged_dict, vladivostok_time, current_day_vladivostok, True)
+        for company, list_advertisements in advertisements.items()
+        if companies[company].get('Boobs', '')
+        for advertisement in list_advertisements
+        if advertisement['status'] == 'Подключено'
+    ]
+
+    message_lines = await asyncio.gather(*task_result)
+    message = ''.join(message_lines)
+
+    return message

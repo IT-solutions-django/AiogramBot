@@ -1,13 +1,14 @@
 import asyncio
 from aiogram import types
 from aiogram import F, Router
-from settings import load_table
+from settings import load_table, static
 from datetime import datetime
 import pytz
 import re
 from settings.logging_settings import logger
 from settings.utils import split_message, show_options, get_balance, get_server, \
-    handle_advertisements, execute_ssh_command, get_service_logs, fetch_data_for_advertisement
+    handle_advertisements, execute_ssh_command, get_service_logs, fetch_data_for_advertisement, \
+    problems_advertisements
 from settings.static import Message
 
 if not load_table.companies or not load_table.advertisements_options or not load_table.advertisements:
@@ -39,9 +40,10 @@ async def callback_get_company_options(callback: types.CallbackQuery) -> None:
 
     message_lines = [f'<b>Options "{options}"</b>\n\n']
     for idx, info in enumerate(company_info, 1):
-        message_lines.append(f'ОБЪЯВЛЕНИЕ {idx}:')
-        message_lines.extend([f'{field}: {data}' for field, data in info.items()])
-        message_lines.append('\n')
+        if info['status'] == 'Подключено':
+            message_lines.append(f'ОБЪЯВЛЕНИЕ {idx}:')
+            message_lines.extend([f'{field}: {data}' for field, data in info.items()])
+            message_lines.append('\n')
     message = '\n'.join(message_lines)
 
     parts = split_message(message)
@@ -101,7 +103,8 @@ async def get_options_price(callback: types.CallbackQuery):
 
     await callback.message.answer(Message.LOAD_COMMAND.value)
 
-    tasks = [fetch_data_for_advertisement(advertisements) for advertisements in advertisements_options]
+    tasks = [fetch_data_for_advertisement(advertisements) for advertisements in advertisements_options if
+             advertisements['status'] == 'Подключено']
     results = await asyncio.gather(*tasks)
 
     message_lines = ''.join(results)
@@ -112,12 +115,6 @@ async def get_options_price(callback: types.CallbackQuery):
         await callback.message.answer(part, parse_mode='HTML')
 
     await callback.answer()
-
-
-@router.callback_query(F.data.startswith('problems_advertisements_'))
-async def problems_advertisements(callback: types.CallbackQuery):
-    company_name = callback.data.split("problems_advertisements_")[1]
-    await handle_advertisements(callback, company_name, is_problem=True)
 
 
 @router.callback_query(lambda callback: callback.data.split('_')[1] in load_table.companies.keys())
@@ -163,4 +160,15 @@ async def get_options_for_price(callback: types.CallbackQuery):
 
 @router.callback_query(F.data == 'get_problems_advertisements')
 async def get_problems_advertisements(callback: types.CallbackQuery):
-    await show_options(callback, load_table.companies, 'компанию', 'problems_advertisements')
+    await callback.message.answer(static.Message.LOAD_COMMAND.value)
+
+    message = await problems_advertisements()
+
+    if not message:
+        message = 'Для компаний нет "проблемных" объявлений'
+
+    parts = split_message(message)
+    for part in parts:
+        await callback.message.answer(part, parse_mode='HTML')
+
+    await callback.answer()
