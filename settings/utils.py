@@ -53,8 +53,10 @@ async def get_balance(obj: Union[types.CallbackQuery, types.Message]) -> None:
     boobs = {data['Client']: {'Boobs': data['Boobs'], 'Company': field} for field, data in load_table.companies.items()
              if 'Boobs' in data}
 
-    today_date = datetime.now().strftime('%Y-%m-%d')
-    today_date_json = datetime.now().strftime('%-d %B')
+    vladivostok_tz = pytz.timezone('Asia/Vladivostok')
+
+    today_date = datetime.now(vladivostok_tz).strftime('%Y-%m-%d')
+    today_date_json = datetime.now(vladivostok_tz).strftime('%-d %B')
 
     if isinstance(obj, types.CallbackQuery):
         await obj.message.answer(static.Message.LOAD_COMMAND.value)
