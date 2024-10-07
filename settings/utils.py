@@ -132,7 +132,7 @@ async def get_server(obj: Union[types.CallbackQuery, types.Message]) -> None:
 
 async def fetch_advertisement_common(advertisement: Dict[str, str], all_dict: Dict[str, Dict[str, str]],
                                      vladivostok_time: time, current_day: int,
-                                     check_problems: bool = False) -> str:
+                                     check_problems: bool = False, company=None) -> str:
     id_advertisement: str = advertisement['_id']
 
     active_day_map: Dict[str, set] = is_day_active()
@@ -151,9 +151,9 @@ async def fetch_advertisement_common(advertisement: Dict[str, str], all_dict: Di
 
     if check_problems:
         if id_advertisement in all_dict and (not (start_time <= vladivostok_time <= end_time) or not is_active_day):
-            return f'Для объявления "{url}" время вышло, но оно присутствует. Необходимо проверить данную информацию\n\n'
+            return f'{company}. Для объявления "{url}" время вышло, но оно присутствует\n\n'
         elif not (id_advertisement in all_dict) and (start_time <= vladivostok_time <= end_time) and is_active_day:
-            return f'Для объявления "{url}" время не вышло, но его нет. Необходимо проверить данную информацию\n\n'
+            return f'{company}. Для объявления "{url}" время не вышло, но его нет\n\n'
         else:
             return ''
     else:
@@ -161,35 +161,47 @@ async def fetch_advertisement_common(advertisement: Dict[str, str], all_dict: Di
             return f'{all_dict[id_advertisement]["name"]} - {all_dict[id_advertisement]["currencies"]}\n\n'
         elif id_advertisement in all_dict and (
                 not (start_time <= vladivostok_time <= end_time) or not is_active_day):
-            return f'Для объявления "{url}" время вышло, но оно присутствует. Необходимо проверить данную информацию\n\n'
+            return f'Для объявления "{url}" время вышло, но оно присутствует\n\n'
         elif not (id_advertisement in all_dict) and (
                 start_time <= vladivostok_time <= end_time) and is_active_day:
-            return f'Для объявления "{url}" время не вышло, но его нет. Необходимо проверить данную информацию\n\n'
+            return f'Для объявления "{url}" время не вышло, но его нет\n\n'
         else:
             return f'Для объявления "{url}" вышло время\n\n'
 
 
 async def load_advertisements_data(company_name: str, company_boobs: str) -> Dict[str, Dict[str, str]]:
     headers: Dict[str, str] = {'Cookie': f'boobs={company_boobs}'}
-    url: str = static.Urls.URL_ACTUAL_BULLETINS.value
-    async with aiohttp.request('get', url, headers=headers) as response:
-        if response.status == 200:
-            content = await response.text()
-            soup = BeautifulSoup(content, 'html.parser')
+    base_url: str = static.Urls.URL_ACTUAL_BULLETINS.value
+    page = 1
+    all_dict = {}
 
-            currencies = soup.find_all('div', class_='service-card-head__link')
-            titles = soup.find_all('a', class_='bulletinLink bull-item__self-link auto-shy')
+    while True:
+        url = f"{base_url}?page={page}"
+        async with aiohttp.request('get', url, headers=headers, allow_redirects=False) as response:
+            if response.status == 200:
+                content = await response.text()
+                soup = BeautifulSoup(content, 'html.parser')
 
-            all_dict = {
-                re.search(r'-(\d+)\.html', title['href']).group(1):
-                    {
-                        'currencies': div.text.strip(),
-                        'name': title.text
-                    }
-                for title, div in zip(titles, currencies)
-            }
-            return all_dict
-    return {}
+                currencies = soup.find_all('div', class_='bulletin-additionals__container')
+                titles = soup.find_all('a', class_='bulletinLink bull-item__self-link auto-shy')
+
+                if not currencies or not titles:
+                    break
+
+                page_data = {
+                    re.search(r'(\d+)\.html', title['href']).group(1):
+                        {
+                            'currencies': div.text.strip(),
+                            'name': title.text
+                        }
+                    for title, div in zip(titles, currencies)
+                }
+                all_dict.update(page_data)
+
+                page += 1
+            else:
+                break
+    return all_dict
 
 
 async def handle_advertisements(callback: types.CallbackQuery, company_name: str, is_problem: bool):
@@ -250,35 +262,46 @@ async def fetch_data_for_advertisement(advertisements) -> str:
     company_boobs = load_table.companies[advertisements['client']].get('Boobs', '')
     if company_boobs:
         headers = {'Cookie': f'boobs={company_boobs}'}
-        url = static.Urls.URL_ACTUAL_BULLETINS.value
+        base_url = static.Urls.URL_ACTUAL_BULLETINS.value
+        page = 1
+        all_dict = {}
 
-        async with aiohttp.request('get', url, headers=headers) as response:
-            if response.status == 200:
-                content = await response.text()
-                soup = BeautifulSoup(content, 'html.parser')
+        while True:
+            url = f"{base_url}?page={page}"
+            async with aiohttp.request('get', url, headers=headers, allow_redirects=False) as response:
+                if response.status == 200:
+                    content = await response.text()
+                    soup = BeautifulSoup(content, 'html.parser')
 
-                currencies = soup.find_all('div', class_='service-card-head__link')
-                titles = soup.find_all('a', class_='bulletinLink bull-item__self-link auto-shy')
+                    currencies = soup.find_all('div', class_='bulletin-additionals__container')
+                    titles = soup.find_all('a', class_='bulletinLink bull-item__self-link auto-shy')
 
-                all_dict = {
-                    re.search(r'-(\d+)\.html', title['href']).group(1):
-                        {
-                            'currencies': div.text.strip(),
-                            'name': title.text
-                        }
-                    for title, div in zip(titles, currencies)
-                }
+                    if not currencies or not titles:
+                        break
 
-                vladivostok_tz = pytz.timezone('Asia/Vladivostok')
-                vladivostok_time = datetime.now(vladivostok_tz).time()
-                current_day_vladivostok = datetime.now(vladivostok_tz).weekday()
+                    page_data = {
+                        re.search(r'-(\d+)\.html', title['href']).group(1):
+                            {
+                                'currencies': div.text.strip(),
+                                'name': title.text.strip()
+                            }
+                        for title, div in zip(titles, currencies)
+                    }
+                    all_dict.update(page_data)
 
-                task = await fetch_advertisement_common(advertisements, all_dict, vladivostok_time,
-                                                        current_day_vladivostok, False)
+                    page += 1
+                else:
+                    return f'Ошибка получения данных для {advertisements["client"]}\n\n'
 
-                return f'Компания "{advertisements["client"]}". ' + task
-            else:
-                return f'Ошибка получения данных для {advertisements["client"]}\n\n'
+        vladivostok_tz = pytz.timezone('Asia/Vladivostok')
+        vladivostok_time = datetime.now(vladivostok_tz).time()
+        current_day_vladivostok = datetime.now(vladivostok_tz).weekday()
+
+        task = await fetch_advertisement_common(
+            advertisements, all_dict, vladivostok_time, current_day_vladivostok, False
+        )
+
+        return f'Компания "{advertisements["client"]}". ' + task
     else:
         return f'Для компании "{advertisements["client"]} - {advertisements["city"]}" действие недоступно\n\n'
 
@@ -301,7 +324,7 @@ async def problems_advertisements():
     merged_dict = {k: v for d in all_dict for k, v in d.items()}
 
     task_result = [
-        fetch_advertisement_common(advertisement, merged_dict, vladivostok_time, current_day_vladivostok, True)
+        fetch_advertisement_common(advertisement, merged_dict, vladivostok_time, current_day_vladivostok, True, company)
         for company, list_advertisements in advertisements.items()
         if companies[company].get('Boobs', '')
         for advertisement in list_advertisements
