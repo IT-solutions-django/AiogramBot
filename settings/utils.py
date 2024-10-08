@@ -233,7 +233,7 @@ async def handle_advertisements(callback: types.CallbackQuery, company_name: str
     if not message:
         message = 'Для данной компании нет "проблемных" объявлений' if is_problem else 'Нет объявлений'
 
-    message = f'Компания "<b>{company_name}</b>"\n\n' + message
+    message = f'<b>Компания "{company_name}"</b>\n\n' + message
 
     parts = split_message(message)
     for part in parts:
