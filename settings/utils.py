@@ -191,7 +191,8 @@ async def load_advertisements_data(company_name: str, company_boobs: str) -> Dic
                 page_data = {
                     re.search(r'(\d+)\.html', title['href']).group(1):
                         {
-                            'currencies': div.text.strip(),
+                            'currencies': ' '.join(div.text.split()) if not div.find('div', {'class': 'iconic fav'})
+                            else ' '.join(div.find('div', {'class': 'iconic fav'}).decompose() or div.text.split()),
                             'name': title.text
                         }
                     for title, div in zip(titles, currencies)
@@ -282,7 +283,8 @@ async def fetch_data_for_advertisement(advertisements) -> str:
                     page_data = {
                         re.search(r'-(\d+)\.html', title['href']).group(1):
                             {
-                                'currencies': div.text.strip(),
+                                'currencies': ' '.join(div.text.split()) if not div.find('div', {'class': 'iconic fav'})
+                                else ' '.join(div.find('div', {'class': 'iconic fav'}).decompose() or div.text.split()),
                                 'name': title.text.strip()
                             }
                         for title, div in zip(titles, currencies)
