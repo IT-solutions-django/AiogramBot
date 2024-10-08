@@ -151,9 +151,9 @@ async def fetch_advertisement_common(advertisement: Dict[str, str], all_dict: Di
 
     if check_problems:
         if id_advertisement in all_dict and (not (start_time <= vladivostok_time <= end_time) or not is_active_day):
-            return f'{company}. Для объявления "{url}" время вышло, но оно присутствует\n\n'
+            return f'Для объявления "{url}" время вышло, но оно присутствует\n\n'
         elif not (id_advertisement in all_dict) and (start_time <= vladivostok_time <= end_time) and is_active_day:
-            return f'{company}. Для объявления "{url}" время не вышло, но его нет\n\n'
+            return f'Для объявления "{url}" время не вышло, но его нет\n\n'
         else:
             return ''
     else:
@@ -327,15 +327,27 @@ async def problems_advertisements():
     all_dict = await asyncio.gather(*task_all_dict)
     merged_dict = {k: v for d in all_dict for k, v in d.items()}
 
-    task_result = [
-        fetch_advertisement_common(advertisement, merged_dict, vladivostok_time, current_day_vladivostok, True, company)
-        for company, list_advertisements in advertisements.items()
-        if companies[company].get('Boobs', '')
-        for advertisement in list_advertisements
-        if advertisement['status'] == 'Подключено'
-    ]
+    company_messages = {}
 
-    message_lines = await asyncio.gather(*task_result)
-    message = ''.join(message_lines)
+    for company, list_advertisements in advertisements.items():
+        if companies[company].get('Boobs', ''):
+            task_result = [
+                fetch_advertisement_common(advertisement, merged_dict, vladivostok_time, current_day_vladivostok, True,
+                                           company)
+                for advertisement in list_advertisements
+                if advertisement['status'] == 'Подключено'
+            ]
+
+            company_message_lines = await asyncio.gather(*task_result)
+
+            filtered_messages = [msg for msg in company_message_lines if msg]
+            if filtered_messages:
+                company_messages[company] = filtered_messages
+
+    message = ''
+    for company, messages in company_messages.items():
+        message += f'Компания "{company}":\n'
+        message += ''.join(messages)
+        message += "\n"
 
     return message
