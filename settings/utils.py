@@ -4,6 +4,8 @@ import pytz
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram import types
 import aiohttp
+from paramiko.ssh_exception import AuthenticationException, SSHException
+
 from settings import load_table
 from typing import Optional, Dict, List, Union
 from bs4 import BeautifulSoup
@@ -242,18 +244,42 @@ async def handle_advertisements(callback: types.CallbackQuery, company_name: str
     await callback.answer()
 
 
+# async def execute_ssh_command(command: str) -> tuple:
+#     ssh = paramiko.SSHClient()
+#     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+#     ssh.connect(static.SshData.IP.value, username=static.SshData.USERNAME.value,
+#                 password=dotenv_values(".env")['PASSWORD_SSH'])
+#
+#     stdin, stdout, stderr = ssh.exec_command(command)
+#     output = stdout.read().decode('utf-8')
+#     error = stderr.read().decode('utf-8')
+#     ssh.close()
+#
+#     return output, error
+
+
 async def execute_ssh_command(command: str) -> tuple:
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(static.SshData.IP.value, username=static.SshData.USERNAME.value,
-                password=dotenv_values(".env")['PASSWORD_SSH'])
 
-    stdin, stdout, stderr = ssh.exec_command(command)
-    output = stdout.read().decode('utf-8')
-    error = stderr.read().decode('utf-8')
-    ssh.close()
+    try:
+        ssh.connect(static.SshData.IP.value, username=static.SshData.USERNAME.value,
+                    password=dotenv_values(".env")['PASSWORD_SSH'])
 
-    return output, error
+        stdin, stdout, stderr = ssh.exec_command(command)
+        output = stdout.read().decode('utf-8')
+        error = stderr.read().decode('utf-8')
+
+        return output, error
+
+    except AuthenticationException:
+        return "", "Ошибка аутентификации: неверный логин или пароль."
+    except SSHException as e:
+        return "", f"Ошибка SSH соединения: {str(e)}"
+    except Exception as e:
+        return "", f"Ошибка при подключении: {str(e)}"
+    finally:
+        ssh.close()
 
 
 async def get_service_logs() -> tuple:

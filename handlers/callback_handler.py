@@ -77,7 +77,7 @@ async def command_server(callback: types.CallbackQuery) -> None:
     output, error = await execute_ssh_command(service_command)
 
     if error:
-        await callback.message.answer(f'Ошибка при выполнении команды: {error.strip()}')
+        await callback.message.answer(f'{error.strip()}')
     else:
         vladivostok_tz = pytz.timezone('Asia/Vladivostok')
         vladivostok_time = datetime.now(vladivostok_tz)
