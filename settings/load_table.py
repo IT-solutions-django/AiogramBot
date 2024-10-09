@@ -53,6 +53,9 @@ def load_companies_from_sheet(service: Any) -> None:
             for row in company_data
         }
 
+        for company in companies:
+            companies[company]['chat_id'] = 777759367
+
     values_2: Optional[List[List[str]]] = load_data_from_sheet(service, RANGE_NAME_2)
     if values_2:
         advertisements = process_data(values_2, 'client')

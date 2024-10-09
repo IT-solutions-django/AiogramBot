@@ -5,7 +5,6 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram import types
 import aiohttp
 from paramiko.ssh_exception import AuthenticationException, SSHException
-
 from settings import load_table
 from typing import Optional, Dict, List, Union
 from bs4 import BeautifulSoup
@@ -16,6 +15,7 @@ from dotenv import dotenv_values
 from settings import static
 from keyboards.keyboard import buttons_command_server
 from settings.logging_settings import logger
+from decimal import Decimal, ROUND_HALF_UP
 
 locale.setlocale(locale.LC_TIME, 'ru_RU.UTF-8')
 
@@ -90,15 +90,15 @@ async def get_balance(obj: Union[types.CallbackQuery, types.Message]) -> None:
 async def fetch_data_balance(session, client_name, boob_value, balance_url, details_url, headers, today_date_json):
     messages = []
     try:
-        async with session.get(balance_url, headers=headers) as balance_response:
+        async with session.get(balance_url, headers=headers, allow_redirects=False) as balance_response:
             if balance_response.status == 200:
                 balance_data = await balance_response.json()
                 balance = balance_data.get('canSpend')
                 messages.append(f'<b>Клиент</b>: {client_name} ({boob_value["Company"]}), <b>Баланс</b>: {balance}.')
             else:
-                messages.append(f'Ошибка получения баланса для {client_name}')
+                messages.append(f'Ошибка получения баланса для {client_name}\n')
 
-        async with session.get(details_url, headers=headers) as details_response:
+        async with session.get(details_url, headers=headers, allow_redirects=False) as details_response:
             if details_response.status == 200:
                 details_data = await details_response.json()
                 transactions = details_data['data'].get('transactions', [])
@@ -116,9 +116,9 @@ async def fetch_data_balance(session, client_name, boob_value, balance_url, deta
                 else:
                     messages.append(f'Для {client_name} сегодня пополнений не было.\n')
             else:
-                messages.append(f'Ошибка при получении данных о пополнении для {client_name}')
+                messages.append(f'Ошибка при получении данных о пополнении для {client_name}\n')
     except Exception as e:
-        messages.append(f'Ошибка для {client_name}: {str(e)}')
+        messages.append(f'Ошибка для {client_name}: {str(e)}\n')
 
     return '\n'.join(messages)
 
@@ -134,7 +134,7 @@ async def get_server(obj: Union[types.CallbackQuery, types.Message]) -> None:
 
 async def fetch_advertisement_common(advertisement: Dict[str, str], all_dict: Dict[str, Dict[str, str]],
                                      vladivostok_time: time, current_day: int,
-                                     check_problems: bool = False, company=None) -> str:
+                                     check_problems: bool = False) -> str:
     id_advertisement: str = advertisement['_id']
 
     active_day_map: Dict[str, set] = is_day_active()
@@ -171,7 +171,7 @@ async def fetch_advertisement_common(advertisement: Dict[str, str], all_dict: Di
             return f'Для объявления "{url}" вышло время\n\n'
 
 
-async def load_advertisements_data(company_name: str, company_boobs: str) -> Dict[str, Dict[str, str]]:
+async def load_advertisements_data(company_name: str, company_boobs: str) -> Union[Dict[str, Dict[str, str]], str]:
     headers: Dict[str, str] = {'Cookie': f'boobs={company_boobs}'}
     base_url: str = static.Urls.URL_ACTUAL_BULLETINS.value
     page = 1
@@ -184,26 +184,29 @@ async def load_advertisements_data(company_name: str, company_boobs: str) -> Dic
                 content = await response.text()
                 soup = BeautifulSoup(content, 'html.parser')
 
-                currencies = soup.find_all('div', class_='bulletin-additionals__container')
-                titles = soup.find_all('a', class_='bulletinLink bull-item__self-link auto-shy')
+                cards_advertisement = soup.find_all('tr', class_='bull-list-item-js')
 
-                if not currencies or not titles:
+                if not cards_advertisement:
                     break
 
-                page_data = {
-                    re.search(r'(\d+)\.html', title['href']).group(1):
-                        {
-                            'currencies': ' '.join(div.text.split()) if not div.find('div', {'class': 'iconic fav'})
-                            else ' '.join(div.find('div', {'class': 'iconic fav'}).decompose() or div.text.split()),
-                            'name': title.text
+                for card in cards_advertisement:
+                    title = card.find('a', class_='bulletinLink bull-item__self-link auto-shy')
+                    currency = card.find('div', class_='service-card-head__link serviceStick applied')
+                    if currency:
+                        page_data = {
+                            re.search(r'(\d+)\.html', title['href']).group(1):
+                                {
+                                    'currencies': currency.text.strip(),
+                                    'name': title.text.strip()
+                                }
                         }
-                    for title, div in zip(titles, currencies)
-                }
-                all_dict.update(page_data)
+                        all_dict.update(page_data)
+                    else:
+                        continue
 
                 page += 1
             else:
-                break
+                return company_name
     return all_dict
 
 
@@ -218,44 +221,33 @@ async def handle_advertisements(callback: types.CallbackQuery, company_name: str
     await callback.message.answer(static.Message.LOAD_COMMAND.value)
     all_dict = await load_advertisements_data(company_name, company_boobs)
 
-    company_advertisements = load_table.advertisements[company_name]
-    vladivostok_tz = pytz.timezone('Asia/Vladivostok')
-    vladivostok_time = datetime.now(vladivostok_tz).time()
-    current_day_vladivostok = datetime.now(vladivostok_tz).weekday()
+    if isinstance(all_dict, str):
+        message = f'<b>Компания "{company_name}"</b>\n\nОшибка получения данных'
+    else:
+        company_advertisements = load_table.advertisements[company_name]
+        vladivostok_tz = pytz.timezone('Asia/Vladivostok')
+        vladivostok_time = datetime.now(vladivostok_tz).time()
+        current_day_vladivostok = datetime.now(vladivostok_tz).weekday()
 
-    tasks = [
-        fetch_advertisement_common(advertisement, all_dict, vladivostok_time, current_day_vladivostok, is_problem)
-        for advertisement in company_advertisements
-        if advertisement['status'] == 'Подключено'
-    ]
+        tasks = [
+            fetch_advertisement_common(advertisement, all_dict, vladivostok_time, current_day_vladivostok, is_problem)
+            for advertisement in company_advertisements
+            if advertisement['status'] == 'Подключено'
+        ]
 
-    message_lines = await asyncio.gather(*tasks)
-    message = ''.join(message_lines)
+        message_lines = await asyncio.gather(*tasks)
+        message = ''.join(message_lines)
 
-    if not message:
-        message = 'Для данной компании нет "проблемных" объявлений' if is_problem else 'Нет объявлений'
+        if not message:
+            message = 'Для данной компании нет "проблемных" объявлений' if is_problem else 'Нет объявлений'
 
-    message = f'<b>Компания "{company_name}"</b>\n\n' + message
+        message = f'<b>Компания "{company_name}"</b>\n\n' + message
 
     parts = split_message(message)
     for part in parts:
         await callback.message.answer(part, parse_mode='HTML')
 
     await callback.answer()
-
-
-# async def execute_ssh_command(command: str) -> tuple:
-#     ssh = paramiko.SSHClient()
-#     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-#     ssh.connect(static.SshData.IP.value, username=static.SshData.USERNAME.value,
-#                 password=dotenv_values(".env")['PASSWORD_SSH'])
-#
-#     stdin, stdout, stderr = ssh.exec_command(command)
-#     output = stdout.read().decode('utf-8')
-#     error = stderr.read().decode('utf-8')
-#     ssh.close()
-#
-#     return output, error
 
 
 async def execute_ssh_command(command: str) -> tuple:
@@ -302,26 +294,29 @@ async def fetch_data_for_advertisement(advertisements) -> str:
                     content = await response.text()
                     soup = BeautifulSoup(content, 'html.parser')
 
-                    currencies = soup.find_all('div', class_='bulletin-additionals__container')
-                    titles = soup.find_all('a', class_='bulletinLink bull-item__self-link auto-shy')
+                    cards_advertisement = soup.find_all('tr', class_='bull-list-item-js')
 
-                    if not currencies or not titles:
+                    if not cards_advertisement:
                         break
 
-                    page_data = {
-                        re.search(r'-(\d+)\.html', title['href']).group(1):
-                            {
-                                'currencies': ' '.join(div.text.split()) if not div.find('div', {'class': 'iconic fav'})
-                                else ' '.join(div.find('div', {'class': 'iconic fav'}).decompose() or div.text.split()),
-                                'name': title.text.strip()
+                    for card in cards_advertisement:
+                        title = card.find('a', class_='bulletinLink bull-item__self-link auto-shy')
+                        currency = card.find('div', class_='service-card-head__link serviceStick applied')
+                        if currency:
+                            page_data = {
+                                re.search(r'(\d+)\.html', title['href']).group(1):
+                                    {
+                                        'currencies': currency.text.strip(),
+                                        'name': title.text.strip()
+                                    }
                             }
-                        for title, div in zip(titles, currencies)
-                    }
-                    all_dict.update(page_data)
+                            all_dict.update(page_data)
+                        else:
+                            continue
 
                     page += 1
                 else:
-                    return f'Ошибка получения данных для {advertisements["client"]}\n\n'
+                    return f'Ошибка получения данных для "{advertisements["client"]}"\n\n'
 
         vladivostok_tz = pytz.timezone('Asia/Vladivostok')
         vladivostok_time = datetime.now(vladivostok_tz).time()
@@ -351,15 +346,25 @@ async def problems_advertisements():
     ]
 
     all_dict = await asyncio.gather(*task_all_dict)
-    merged_dict = {k: v for d in all_dict for k, v in d.items()}
+    merged_dict = {}
+    error_companies = []
+
+    for result in all_dict:
+        if isinstance(result, dict):
+            merged_dict.update(result)
+        elif isinstance(result, str):
+            error_companies.append(result)
 
     company_messages = {}
 
     for company, list_advertisements in advertisements.items():
+        if company in [error for error in error_companies]:
+            company_messages[company] = ["Ошибка загрузки данных для компании\n"]
+            continue
+
         if companies[company].get('Boobs', ''):
             task_result = [
-                fetch_advertisement_common(advertisement, merged_dict, vladivostok_time, current_day_vladivostok, True,
-                                           company)
+                fetch_advertisement_common(advertisement, merged_dict, vladivostok_time, current_day_vladivostok, True)
                 for advertisement in list_advertisements
                 if advertisement['status'] == 'Подключено'
             ]
@@ -377,3 +382,102 @@ async def problems_advertisements():
         message += "\n"
 
     return message
+
+
+async def fetch_advertisement_stats(id_advertisement, boobs, current_date):
+    url = static.Urls.URL_STATISTIC.get_url(ad_id=id_advertisement, current_date=current_date)
+    headers = {'Cookie': f'boobs={boobs}'}
+
+    async with aiohttp.request('get', url, headers=headers, allow_redirects=False) as response:
+        if response.status == 200:
+            data_json = await response.json()
+            data = data_json['data']
+
+            cnt = data.get('count', '')
+            if not cnt:
+                cnt = 0
+            else:
+                cnt = cnt[current_date]
+
+            contactsCount = data.get('contactsCount', '')
+            if not contactsCount:
+                contactsCount = 0
+            else:
+                contactsCount = contactsCount[current_date]
+
+            jobResponses = data.get('jobResponses', '')
+            if not jobResponses:
+                jobResponses = 0
+            else:
+                jobResponses = jobResponses[current_date]
+
+            bookmarked = data.get('bookmarked', '')
+            if not bookmarked:
+                bookmarked = 0
+            else:
+                bookmarked = bookmarked[current_date]
+
+            transactions = data.get('transactions', '')
+            if not transactions:
+                transactions = 0
+            else:
+                transactions = Decimal(transactions[current_date]).quantize(Decimal('0.00'), rounding=ROUND_HALF_UP)
+
+            return {id_advertisement: {'Просмотр объявлений': cnt, 'Просмотр контактов': contactsCount,
+                                       'Добавлений в избранное': bookmarked, 'Отклик': jobResponses,
+                                       'Платные операции': transactions}}
+        else:
+            return 'Ошибка получения данных'
+
+
+async def send_statistics_to_users(bot):
+    companies = load_table.companies
+    advertisements = load_table.advertisements
+
+    vladivostok_tz = pytz.timezone('Asia/Vladivostok')
+    current_date = datetime.now(vladivostok_tz).strftime('%Y-%m-%d')
+
+    statistics_info = {}
+
+    for company, list_advertisement in advertisements.items():
+        tasks = []
+        for advertisement in list_advertisement:
+            if advertisement['status'] == 'Подключено':
+                id_advertisement = advertisement['_id']
+                boobs = companies[company]['Boobs']
+
+                task = fetch_advertisement_stats(id_advertisement, boobs, current_date)
+                tasks.append(task)
+
+        stat_company = await asyncio.gather(*tasks)
+
+        statistics_info[company] = stat_company
+
+    for company, list_data in statistics_info.items():
+        total_sums = {}
+        lines = list()
+        lines.append(f'{company} ({current_date}):\n')
+
+        for data_dict in list_data:
+            if isinstance(data_dict, dict):
+
+                for id_advertisement, data in data_dict.items():
+                    lines.append(f'URL: https://www.farpost.ru/{id_advertisement}\n')
+                    for field, value in data.items():
+                        lines.append(f'{field}: {value}\n')
+
+                        if field not in total_sums:
+                            total_sums[field] = 0
+                        total_sums[field] += float(value)
+            elif isinstance(data_dict, str):
+                lines.append('Ошибка получения данных\n')
+                break
+
+            lines.append('\n')
+
+        lines.append('Общие итоги:\n')
+        for field, total in total_sums.items():
+            lines.append(f'{field}: {total}\n')
+
+        text = ''.join(lines)
+        await bot.send_message(chat_id=companies[company]['chat_id'], text=text)
