@@ -112,7 +112,11 @@ async def get_options_price(callback: types.CallbackQuery):
     results = await asyncio.gather(*tasks)
 
     message_lines = ''.join(results)
-    message_lines = f'<b>Options "{options}"</b>\n\n' + message_lines
+
+    if not message_lines:
+        message_lines = f'<b>Options "{options}"</b>\n\nНет объявлений'
+    else:
+        message_lines = f'<b>Options "{options}"</b>\n\n' + message_lines
 
     parts = split_message(message_lines)
     for part in parts:
