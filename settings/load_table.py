@@ -4,7 +4,7 @@ from typing import List, Dict, Optional, Any
 service = main()
 
 SPREADSHEET_ID: str = '18GpffNyktdFoD_p1o2VtE-UKc2Fju3QAjQrhAf2zpbc'
-RANGE_NAME: str = 'Клиенты!A1:I'
+RANGE_NAME: str = 'Клиенты!A1:J'
 RANGE_NAME_2: str = 'JSON!A1:AB'
 
 companies: Dict[str, Dict[str, str]] = {}
@@ -52,9 +52,6 @@ def load_companies_from_sheet(service: Any) -> None:
             row[0]: {headers[i]: row[i] for i in range(1, len(headers)) if row[i]}
             for row in company_data
         }
-
-        for company in companies:
-            companies[company]['chat_id'] = 777759367
 
     values_2: Optional[List[List[str]]] = load_data_from_sheet(service, RANGE_NAME_2)
     if values_2:

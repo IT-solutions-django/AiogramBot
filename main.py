@@ -5,17 +5,21 @@ from dotenv import dotenv_values
 from settings import load_table
 from settings.middleware import AccessMiddleware
 from settings.schedulers import schedule_daily_statistics
+import json
 
 API_TOKEN: str = dotenv_values(".env")['API_TOKEN']
 bot: Bot = Bot(token=API_TOKEN)
 dp: Dispatcher = Dispatcher()
 
-allowed_chat_ids = [load_table.companies[company]['chat_id'] for company in load_table.companies]
+allowed_chat_ids = [int(load_table.companies[company]['Chat_id']) for company in load_table.companies]
+
+with open('settings/admin.json') as file:
+    chats_idx = json.load(file)['chat_id']
 
 
 async def main() -> None:
-    dp.message.middleware(AccessMiddleware(allowed_chat_ids))
-    dp.callback_query.middleware(AccessMiddleware(allowed_chat_ids))
+    dp.message.middleware(AccessMiddleware(chats_idx))
+    dp.callback_query.middleware(AccessMiddleware(chats_idx))
 
     dp.include_router(command_handler.router)
     dp.include_router(callback_handler.router)

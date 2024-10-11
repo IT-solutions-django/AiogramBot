@@ -1,5 +1,6 @@
 .env
 *.json
+!admin.json
 .venv
 __pycache__/
 env/

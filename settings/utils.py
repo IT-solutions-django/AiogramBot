@@ -1,5 +1,7 @@
 import asyncio
 import re
+
+import aiogram.exceptions
 import pytz
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram import types
@@ -393,35 +395,42 @@ async def fetch_advertisement_stats(id_advertisement, boobs, current_date):
             data_json = await response.json()
             data = data_json['data']
 
-            cnt = data.get('count', '')
-            if not cnt:
+            if isinstance(data, list):
                 cnt = 0
-            else:
-                cnt = cnt[current_date]
-
-            contactsCount = data.get('contactsCount', '')
-            if not contactsCount:
                 contactsCount = 0
-            else:
-                contactsCount = contactsCount[current_date]
-
-            jobResponses = data.get('jobResponses', '')
-            if not jobResponses:
                 jobResponses = 0
-            else:
-                jobResponses = jobResponses[current_date]
-
-            bookmarked = data.get('bookmarked', '')
-            if not bookmarked:
                 bookmarked = 0
-            else:
-                bookmarked = bookmarked[current_date]
-
-            transactions = data.get('transactions', '')
-            if not transactions:
                 transactions = 0
             else:
-                transactions = Decimal(transactions[current_date]).quantize(Decimal('0.00'), rounding=ROUND_HALF_UP)
+                cnt = data.get('count', '')
+                if not cnt:
+                    cnt = 0
+                else:
+                    cnt = cnt[current_date]
+
+                contactsCount = data.get('contactsCount', '')
+                if not contactsCount:
+                    contactsCount = 0
+                else:
+                    contactsCount = contactsCount[current_date]
+
+                jobResponses = data.get('jobResponses', '')
+                if not jobResponses:
+                    jobResponses = 0
+                else:
+                    jobResponses = jobResponses[current_date]
+
+                bookmarked = data.get('bookmarked', '')
+                if not bookmarked:
+                    bookmarked = 0
+                else:
+                    bookmarked = bookmarked[current_date]
+
+                transactions = data.get('transactions', '')
+                if not transactions:
+                    transactions = 0
+                else:
+                    transactions = Decimal(transactions[current_date]).quantize(Decimal('0.00'), rounding=ROUND_HALF_UP)
 
             return {id_advertisement: {'Просмотр объявлений': cnt, 'Просмотр контактов': contactsCount,
                                        'Добавлений в избранное': bookmarked, 'Отклик': jobResponses,
@@ -480,4 +489,8 @@ async def send_statistics_to_users(bot):
             lines.append(f'{field}: {total}\n')
 
         text = ''.join(lines)
-        await bot.send_message(chat_id=companies[company]['chat_id'], text=text)
+        try:
+            await bot.send_message(chat_id=companies[company]['Chat_id'], text=text)
+        except aiogram.exceptions.TelegramBadRequest:
+            logger.error(f'Бот не может отправить "{company}" сообщение по данным статистики объявлений')
+            continue
