@@ -14,12 +14,12 @@ class AccessMiddleware(BaseMiddleware):
                        data: Dict[str, Any]) -> Any:
         if isinstance(event, Message):
             if event.from_user.id not in self.allowed_chat_ids:
-                await event.answer("У вас нет доступа к этому боту.")
+                await event.answer("У вас есть только пользовательский доступ к боту.")
                 return
 
         elif isinstance(event, CallbackQuery):
             if event.from_user.id not in self.allowed_chat_ids:
-                await event.answer("У вас нет доступа к этому боту.", show_alert=True)
+                await event.answer("У вас есть только пользовательский доступ к боту.", show_alert=True)
                 return
 
         return await handler(event, data)
