@@ -207,6 +207,8 @@ async def load_advertisements_data(company_name: str, company_boobs: str) -> Uni
                         continue
 
                 page += 1
+            elif response.status == 303:
+                break
             else:
                 return company_name
     return all_dict
@@ -317,6 +319,8 @@ async def fetch_data_for_advertisement(advertisements) -> str:
                             continue
 
                     page += 1
+                elif response.status == 303:
+                    break
                 else:
                     return f'Ошибка получения данных для "{advertisements["client"]}"\n\n'
 
