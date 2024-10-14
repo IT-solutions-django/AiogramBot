@@ -16,42 +16,42 @@ async def send_welcome(message: types.Message) -> None:
     await message.answer(Message.CHOICE_COMMAND.value, reply_markup=keyboard)
 
 
-@router.message(Command("get_company_info"))
+@router.message(Command("info"))
 async def command_get_company_info(message: types.Message) -> None:
     await show_options(message, load_table.companies, 'компанию', 'info')
 
 
-@router.message(Command("get_company_advertisements"))
+@router.message(Command("advertisements"))
 async def command_get_company_advertisements(message: types.Message) -> None:
     await show_options(message, load_table.companies, 'компанию', 'advertisements')
 
 
-@router.message(Command("get_company_options"))
+@router.message(Command("options"))
 async def command_get_company_options(message: types.Message) -> None:
     await show_options(message, load_table.advertisements_options, 'options')
 
 
-@router.message(Command("get_company_price"))
+@router.message(Command("price"))
 async def command_get_company_options(message: types.Message) -> None:
     await show_options(message, load_table.companies, 'компанию', 'price')
 
 
-@router.message(Command("get_balance_users"))
+@router.message(Command("balance"))
 async def get_balance_command(message: types.Message) -> None:
     await get_balance(message)
 
 
-@router.message(Command("get_command_server"))
+@router.message(Command("server"))
 async def get_balance_command(message: types.Message) -> None:
     await get_server(message)
 
 
-@router.message(Command("get_options_for_price"))
+@router.message(Command("options_price"))
 async def get_options_for_price_command(message: types.Message) -> None:
     await show_options(message, load_table.advertisements_options, 'options', 'options_price')
 
 
-@router.message(Command("get_problems_advertisements"))
+@router.message(Command("problems_advertisements"))
 async def get_problems_advertisements_command(message: types.Message) -> None:
     await message.answer(static.Message.LOAD_COMMAND.value)
 
