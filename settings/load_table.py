@@ -1,10 +1,12 @@
+import asyncio
 from settings.quickstart import main
 from typing import List, Dict, Optional, Any
+from settings.logging_settings import logger
 
 service = main()
 
-SPREADSHEET_ID: str = '18GpffNyktdFoD_p1o2VtE-UKc2Fju3QAjQrhAf2zpbc'
-RANGE_NAME: str = 'Клиенты!A1:J'
+SPREADSHEET_ID: str = '1NROUgrCfvtKfccK8iJm__V3qo7uKTC3KsJhn578S7qY'
+RANGE_NAME: str = 'Клиенты!A1:L'
 RANGE_NAME_2: str = 'JSON!A1:AB'
 
 companies: Dict[str, Dict[str, str]] = {}
@@ -12,14 +14,14 @@ advertisements: Dict[str, List[Dict[str, str]]] = {}
 advertisements_options: Dict[str, List[Dict[str, str]]] = {}
 
 
-def load_data_from_sheet(service: Any, range_name: str) -> Optional[List[List[str]]]:
+async def load_data_from_sheet(service: Any, range_name: str) -> Optional[List[List[str]]]:
     sheet = service.spreadsheets()
-    result = sheet.values().get(spreadsheetId=SPREADSHEET_ID, range=range_name).execute()
+    result = await asyncio.to_thread(sheet.values().get(spreadsheetId=SPREADSHEET_ID, range=range_name).execute)
     values = result.get('values', [])
     return values if values else None
 
 
-def process_data(values: List[List[str]], exclude_key: str) -> Dict[str, List[Dict[str, str]]]:
+async def process_data(values: List[List[str]], exclude_key: str) -> Dict[str, List[Dict[str, str]]]:
     headers: List[str] = values[0]
     company_data: List[List[str]] = values[1:]
 
@@ -41,10 +43,12 @@ def process_data(values: List[List[str]], exclude_key: str) -> Dict[str, List[Di
     return data_dict
 
 
-def load_companies_from_sheet(service: Any) -> None:
+async def load_companies_from_sheet(service: Any) -> None:
+    logger.info('Началась загрузка данных')
+
     global companies, advertisements, advertisements_options
 
-    values_1: Optional[List[List[str]]] = load_data_from_sheet(service, RANGE_NAME)
+    values_1: Optional[List[List[str]]] = await load_data_from_sheet(service, RANGE_NAME)
     if values_1:
         headers: List[str] = values_1[0]
         company_data: List[List[str]] = values_1[1:]
@@ -53,7 +57,10 @@ def load_companies_from_sheet(service: Any) -> None:
             for row in company_data
         }
 
-    values_2: Optional[List[List[str]]] = load_data_from_sheet(service, RANGE_NAME_2)
+    values_2: Optional[List[List[str]]] = await load_data_from_sheet(service, RANGE_NAME_2)
     if values_2:
-        advertisements = process_data(values_2, 'client')
-        advertisements_options = process_data(values_2, 'options')
+        advertisements = await process_data(values_2, 'client')
+        advertisements_options = await process_data(values_2, 'options')
+
+    logger.info('Загрузка данных завершилась')
+

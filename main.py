@@ -4,7 +4,7 @@ from handlers import callback_handler, command_handler
 from dotenv import dotenv_values
 from settings import load_table
 from settings.middleware import AccessMiddleware
-from settings.schedulers import schedule_daily_statistics
+from settings.schedulers import schedule_daily_statistics, schedule_daily_data_loading
 import json
 
 API_TOKEN: str = dotenv_values(".env")['API_TOKEN']
@@ -18,6 +18,9 @@ with open('settings/admin.json') as file:
 
 
 async def main() -> None:
+    if not load_table.companies or not load_table.advertisements_options or not load_table.advertisements:
+        await load_table.load_companies_from_sheet(load_table.service)
+
     dp.message.middleware(AccessMiddleware(chats_idx))
     dp.callback_query.middleware(AccessMiddleware(chats_idx))
 
@@ -25,6 +28,7 @@ async def main() -> None:
     dp.include_router(callback_handler.router)
 
     schedule_daily_statistics(bot)
+    schedule_daily_data_loading()
 
     await dp.start_polling(bot, skip_updates=True)
 
