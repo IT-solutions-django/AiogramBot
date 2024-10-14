@@ -2,13 +2,17 @@ import asyncio
 from aiogram import types
 from aiogram import F, Router
 from settings import load_table, static
-from datetime import datetime
+from datetime import datetime, timedelta
 import pytz
 import re
+
+from settings.logging_settings import logger
 from settings.utils import split_message, show_options, get_balance, get_server, \
     handle_advertisements, execute_ssh_command, get_service_logs, fetch_data_for_advertisement, \
-    problems_advertisements
+    problems_advertisements, fetch_advertisement_stats
 from settings.static import Message
+from main import bot
+import aiogram.exceptions
 
 router = Router()
 
@@ -153,6 +157,21 @@ async def callback_get_company_values(callback: types.CallbackQuery) -> None:
         await handle_advertisements(callback, company_name, is_problem=False)
         return
 
+    elif action == 'statistics':
+        vladivostok_tz = pytz.timezone('Asia/Vladivostok')
+
+        buttons_date = [
+            [types.InlineKeyboardButton(text=str(datetime.now(vladivostok_tz).date() - timedelta(days=delta)),
+                                        callback_data=f'{datetime.now(vladivostok_tz).date() - timedelta(days=delta)}_statistics_{company_name}')]
+            for
+            delta in range(0, 7)
+        ]
+        keyboard = types.InlineKeyboardMarkup(inline_keyboard=buttons_date)
+
+        await callback.message.answer(text='Выберите дату', reply_markup=keyboard)
+        await callback.answer()
+        return
+
     parts = split_message(message)
     for part in parts:
         await callback.message.answer(part, parse_mode='HTML')
@@ -176,5 +195,58 @@ async def get_problems_advertisements(callback: types.CallbackQuery):
     parts = split_message(message)
     for part in parts:
         await callback.message.answer(part, parse_mode='HTML')
+
+    await callback.answer()
+
+
+@router.callback_query(lambda callback: re.match(r'\d{4}-\d{2}-\d{2}_statistics_', callback.data))
+async def get_statistics_for_date(callback: types.CallbackQuery):
+    await callback.message.answer(static.Message.LOAD_COMMAND.value)
+
+    company = callback.data.split('_')[2]
+    date = callback.data.split('_')[0]
+    advertisements = load_table.advertisements[company]
+    boobs = load_table.companies[company].get('Boobs', '')
+
+    tasks = [fetch_advertisement_stats(advertisement['_id'], boobs, date) for advertisement in advertisements if
+             advertisement['status'] == 'Подключено']
+
+    stat_company = await asyncio.gather(*tasks)
+
+    lines = [f'{company} ({date}):\n']
+
+    total_sums = {}
+
+    for data_dict in stat_company:
+        if isinstance(data_dict, dict):
+
+            for id_advertisement, data in data_dict.items():
+                lines.append(f'URL: https://www.farpost.ru/{id_advertisement}\n')
+                for field, value in data.items():
+                    lines.append(f'{field}: {value}\n')
+
+                    if field not in total_sums:
+                        total_sums[field] = 0
+                    total_sums[field] += float(value)
+        elif isinstance(data_dict, str):
+            lines.append('Ошибка получения данных\n')
+            break
+
+        lines.append('\n')
+
+    lines.append('Общие итоги:\n')
+    for field, total in total_sums.items():
+        lines.append(f'{field}: {total}\n')
+
+    text = ''.join(lines)
+
+    try:
+        parts = split_message(text)
+        for part in parts:
+            await bot.send_message(chat_id=load_table.companies[company]['Chat_id'], text=part)
+        await callback.message.answer(static.Message.STATISTICS_SUCCESS.value)
+    except aiogram.exceptions.TelegramBadRequest:
+        logger.error(f'Бот не может отправить "{company}" сообщение по данным статистики объявлений')
+        await callback.message.answer(static.Message.STATISTICS_ERROR.value)
 
     await callback.answer()

@@ -66,7 +66,5 @@ async def get_problems_advertisements_command(message: types.Message) -> None:
 
 
 @router.message(Command('statistics_advertisements'))
-async def new(message, bot):
-    await message.answer(static.Message.LOAD_COMMAND.value)
-
-    await send_statistics_to_users(bot)
+async def statistics_advertisements_command(message):
+    await show_options(message, load_table.companies, 'компанию', 'statistics')

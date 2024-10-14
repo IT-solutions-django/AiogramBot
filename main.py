@@ -11,13 +11,11 @@ API_TOKEN: str = dotenv_values(".env")['API_TOKEN']
 bot: Bot = Bot(token=API_TOKEN)
 dp: Dispatcher = Dispatcher()
 
-allowed_chat_ids = [int(load_table.companies[company]['Chat_id']) for company in load_table.companies]
-
-with open('settings/admin.json') as file:
-    chats_idx = json.load(file)['chat_id']
-
 
 async def main() -> None:
+    with open('settings/admin.json') as file:
+        chats_idx = json.load(file)['chat_id']
+
     if not load_table.companies or not load_table.advertisements_options or not load_table.advertisements:
         await load_table.load_companies_from_sheet(load_table.service)
 

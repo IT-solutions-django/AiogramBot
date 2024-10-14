@@ -31,3 +31,5 @@ class Message(Enum):
     LOAD_COMMAND: str = 'Идет выполнение команды...'
     CHOICE_COMMAND: str = 'Выберите команду'
     ERROR_COMMAND: str = 'Для данной компании действие недоступно'
+    STATISTICS_SUCCESS: str = 'Данные по статистике отправлены'
+    STATISTICS_ERROR: str = 'Данные по статистике не отправлены. Произошла ошибка'
