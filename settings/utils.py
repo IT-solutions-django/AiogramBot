@@ -577,5 +577,7 @@ async def repeat_send_problems_advertisements(bot, chats_idx):
         message = 'Ежечасная рассылка\n\n' + message
 
     parts = split_message(message)
-    for part in parts:
-        await bot.send_message(chat_id=chats_idx, text=part)
+
+    for chat_id in chats_idx:
+        for part in parts:
+            await bot.send_message(chat_id=chat_id, text=part)
