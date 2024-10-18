@@ -136,7 +136,7 @@ async def get_server(obj: Union[types.CallbackQuery, types.Message]) -> None:
 
 async def fetch_advertisement_common(advertisement: Dict[str, str], all_dict: Dict[str, Dict[str, str]],
                                      vladivostok_time: time, current_day: int,
-                                     check_problems: bool = False) -> str:
+                                     check_problems: bool = False, check_cause: bool = False, company=None) -> str:
     id_advertisement: str = advertisement['_id']
 
     active_day_map: Dict[str, set] = is_day_active()
@@ -154,12 +154,28 @@ async def fetch_advertisement_common(advertisement: Dict[str, str], all_dict: Di
     end_time = datetime.strptime(advertisement['finish_time'].strip(), '%H.%M').time()
 
     if check_problems:
-        if id_advertisement in all_dict and (not (start_time <= vladivostok_time <= end_time) or not is_active_day):
-            return f'Для объявления "{url}" время вышло, но оно присутствует\n\n'
-        elif not (id_advertisement in all_dict) and (start_time <= vladivostok_time <= end_time) and is_active_day:
-            return f'Для объявления "{url}" время не вышло, но его нет\n\n'
+        if check_cause:
+            boobs = load_table.companies[company]['Boobs']
+            headers = {'Cookie': f"boobs={boobs}"}
+            balance_url = static.Urls.BALANCE_URL.value
+            async with aiohttp.request('get', balance_url, headers=headers, allow_redirects=False) as balance_response:
+                if balance_response.status == 200:
+                    balance_data = await balance_response.json()
+                    balance = balance_data.get('canSpend')
+                else:
+                    return f'Ошибка получения баланса для {company}\n'
+            if not (id_advertisement in all_dict) and (
+                    start_time <= vladivostok_time <= end_time) and is_active_day and balance >= 500:
+                return f'Для объявления "{url}" время не вышло, но его нет и баланс >= 500\n\n'
+            else:
+                return ''
         else:
-            return ''
+            if id_advertisement in all_dict and (not (start_time <= vladivostok_time <= end_time) or not is_active_day):
+                return f'Для объявления "{url}" время вышло, но оно присутствует\n\n'
+            elif not (id_advertisement in all_dict) and (start_time <= vladivostok_time <= end_time) and is_active_day:
+                return f'Для объявления "{url}" время не вышло, но его нет\n\n'
+            else:
+                return ''
     else:
         if id_advertisement in all_dict and (start_time <= vladivostok_time <= end_time) and is_active_day:
             return f'{all_dict[id_advertisement]["name"]} - {all_dict[id_advertisement]["currencies"]}\n\n'
@@ -502,3 +518,64 @@ async def send_statistics_to_users(bot):
         except aiogram.exceptions.TelegramBadRequest:
             logger.error(f'Бот не может отправить "{company}" сообщение по данным статистики объявлений')
             continue
+
+
+async def repeat_send_problems_advertisements(bot, chats_idx):
+    vladivostok_tz = pytz.timezone('Asia/Vladivostok')
+    vladivostok_time = datetime.now(vladivostok_tz).time()
+    current_day_vladivostok = datetime.now(vladivostok_tz).weekday()
+
+    advertisements = load_table.advertisements
+    companies = load_table.companies
+
+    task_all_dict = [
+        load_advertisements_data(company, companies[company].get('Boobs', ''))
+        for company in advertisements
+        if companies[company].get('Boobs', '')
+    ]
+
+    all_dict = await asyncio.gather(*task_all_dict)
+    merged_dict = {}
+    error_companies = []
+
+    for result in all_dict:
+        if isinstance(result, dict):
+            merged_dict.update(result)
+        elif isinstance(result, str):
+            error_companies.append(result)
+
+    company_messages = {}
+
+    for company, list_advertisements in advertisements.items():
+        if company in [error for error in error_companies]:
+            company_messages[company] = ["Ошибка загрузки данных для компании\n"]
+            continue
+
+        if companies[company].get('Boobs', ''):
+            task_result = [
+                fetch_advertisement_common(advertisement, merged_dict, vladivostok_time, current_day_vladivostok, True,
+                                           True, company)
+                for advertisement in list_advertisements
+                if advertisement['status'] == 'Подключено'
+            ]
+
+            company_message_lines = await asyncio.gather(*task_result)
+
+            filtered_messages = [msg for msg in company_message_lines if msg]
+            if filtered_messages:
+                company_messages[company] = filtered_messages
+
+    message = ''
+    for company, messages in company_messages.items():
+        message += f'Компания "{company}":\n'
+        message += ''.join(messages)
+        message += "\n"
+
+    if not message:
+        message = 'Ежечасная рассылка\n\nДля компаний нет "проблемных" объявлений по заданным условиям'
+    else:
+        message = 'Ежечасная рассылка\n\n' + message
+
+    parts = split_message(message)
+    for part in parts:
+        await bot.send_message(chat_id=chats_idx, text=part)

@@ -243,8 +243,7 @@ async def get_statistics_for_date(callback: types.CallbackQuery):
     try:
         parts = split_message(text)
         for part in parts:
-            await bot.send_message(chat_id=load_table.companies[company]['Chat_id'], text=part)
-        await callback.message.answer(static.Message.STATISTICS_SUCCESS.value)
+            await callback.message.answer(text=part)
     except aiogram.exceptions.TelegramBadRequest:
         logger.error(f'Бот не может отправить "{company}" сообщение по данным статистики объявлений')
         await callback.message.answer(static.Message.STATISTICS_ERROR.value)

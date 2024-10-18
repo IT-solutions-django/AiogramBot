@@ -6,8 +6,8 @@ from settings.logging_settings import logger
 service = main()
 
 SPREADSHEET_ID: str = '1NROUgrCfvtKfccK8iJm__V3qo7uKTC3KsJhn578S7qY'
-RANGE_NAME: str = 'Клиенты!A1:L'
-RANGE_NAME_2: str = 'JSON!A1:AB'
+RANGE_NAME: str = "Clients!A1:L"
+RANGE_NAME_2: str = "JSON!A1:AB"
 
 companies: Dict[str, Dict[str, str]] = {}
 advertisements: Dict[str, List[Dict[str, str]]] = {}
