@@ -28,7 +28,7 @@ def schedule_problems_advertisements(bot, chats_idx):
     scheduler = AsyncIOScheduler(timezone=vladivostok_tz)
     scheduler.add_job(
         repeat_send_problems_advertisements,
-        CronTrigger(hour='7-23', minute=0, timezone=vladivostok_tz),
+        CronTrigger(hour='7-23', minute=30, timezone=vladivostok_tz),
         args=[bot, chats_idx]
     )
     scheduler.start()
