@@ -100,25 +100,41 @@ async def fetch_data_balance(session, client_name, boob_value, balance_url, deta
             else:
                 messages.append(f'Ошибка получения баланса для {client_name}\n')
 
-        async with session.get(details_url, headers=headers, allow_redirects=False) as details_response:
-            if details_response.status == 200:
-                details_data = await details_response.json()
-                transactions = details_data['data'].get('transactions', [])
-                for day_data in transactions:
-                    if day_data['date'] == today_date_json:
-                        day_transactions = day_data['transactions']
-                        replenishments = [trans for trans in day_transactions if
-                                          'пополнение' in trans['description']['text'].lower()]
-                        if replenishments:
-                            messages.append(
-                                f'<b>Пополнения</b> для {client_name}: {len(replenishments)} пополнение(ий) сегодня.\n')
+        page = 1
+        len_replenishments = 0
+        flag_page = True
+        while True:
+            url = f'{details_url}&page={page}'
+            async with session.get(url, headers=headers, allow_redirects=False) as details_response:
+                if details_response.status == 200:
+                    details_data = await details_response.json()
+                    transactions = details_data['data'].get('transactions', [])
+
+                    if not transactions:
+                        break
+
+                    for day_data in transactions:
+                        if day_data['date'] == today_date_json:
+                            day_transactions = day_data['transactions']
+                            replenishments = [trans for trans in day_transactions if
+                                              'пополнение' in trans['description']['text'].lower()]
+                            len_replenishments += len(replenishments)
+                            break
                         else:
-                            messages.append(f'Для {client_name} сегодня пополнений не было.\n')
+                            flag_page = False
+                            break
+                    if flag_page:
+                        page += 1
+                    else:
                         break
                 else:
-                    messages.append(f'Для {client_name} сегодня пополнений не было.\n')
-            else:
-                messages.append(f'Ошибка при получении данных о пополнении для {client_name}\n')
+                    messages.append(f'Ошибка при получении данных о пополнении для {client_name}\n')
+                    break
+        if len_replenishments == 0:
+            messages.append(f'Для {client_name} сегодня пополнений не было.\n')
+        else:
+            messages.append(
+                f'<b>Пополнения</b> для {client_name}: {len_replenishments} пополнение(ий) сегодня.\n')
     except Exception as e:
         messages.append(f'Ошибка для {client_name}: {str(e)}\n')
 
