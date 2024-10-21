@@ -184,17 +184,17 @@ async def fetch_advertisement_common(advertisement: Dict[str, str], all_dict: Di
                     return f'Ошибка получения баланса для {company}\n'
             if not (id_advertisement in all_dict) and (
                     start_time <= vladivostok_time <= end_time) and is_active_day and balance >= 150:
-                return f'URL: {url}\nОбъявление не приклеено\nАктивные часы: {advertisement['start_time'].strip()} - {advertisement['finish_time'].strip()}\n\n'
+                return f'URL: {url}\nОбъявление не приклеено\nАктивные часы: {advertisement["start_time"].strip()} - {advertisement["finish_time"].strip()}\n\n'
             elif id_advertisement in all_dict and (
                     not (start_time <= vladivostok_time <= end_time) or not is_active_day):
-                return f'URL: {url}\nОбъявление приклеено\nАктивные часы: {advertisement['start_time'].strip()} - {advertisement['finish_time'].strip()}\n\n'
+                return f'URL: {url}\nОбъявление приклеено\nАктивные часы: {advertisement["start_time"].strip()} - {advertisement["finish_time"].strip()}\n\n'
             else:
                 return ''
         else:
             if id_advertisement in all_dict and (not (start_time <= vladivostok_time <= end_time) or not is_active_day):
-                return f'URL: {url}\nОбъявление приклеено\nАктивные часы: {advertisement['start_time'].strip()} - {advertisement['finish_time'].strip()}\n\n'
+                return f'URL: {url}\nОбъявление приклеено\nАктивные часы: {advertisement["start_time"].strip()} - {advertisement["finish_time"].strip()}\n\n'
             elif not (id_advertisement in all_dict) and (start_time <= vladivostok_time <= end_time) and is_active_day:
-                return f'URL: {url}\nОбъявление не приклеено\nАктивные часы: {advertisement['start_time'].strip()} - {advertisement['finish_time'].strip()}\n\n'
+                return f'URL: {url}\nОбъявление не приклеено\nАктивные часы: {advertisement["start_time"].strip()} - {advertisement["finish_time"].strip()}\n\n'
             else:
                 return ''
     else:
