@@ -133,7 +133,7 @@ async def get_options_price(callback: types.CallbackQuery):
                     grouped_results[company].append(info)
 
     for company, data_list in grouped_results.items():
-        company_lines = [f'{company}:\n']
+        company_lines = [f'<b>{company}</b>:\n']
         for data in data_list:
             company_lines.append(f'{data}\n')
 
