@@ -132,7 +132,7 @@ async def fetch_data_balance(session, client_name, boob_value, balance_url, deta
                     messages.append(f'Ошибка при получении данных о пополнении для {client_name}\n')
                     break
         if len_replenishments == 0:
-            messages.append(f'Сегодня пополнений не было\n')
+            messages.append('\n')
         else:
             messages.append(
                 f'Сегодня было пополнение баланса\n')
@@ -582,22 +582,6 @@ async def repeat_send_problems_advertisements(bot, chats_idx):
     vladivostok_tz = pytz.timezone('Asia/Vladivostok')
     vladivostok_time = datetime.now(vladivostok_tz).time()
 
-    delay_times = [
-        (7, 0),
-        (8, 0),
-        (9, 0),
-        (10, 0),
-        (8, 30),
-        (20, 0),
-        (21, 0),
-        (22, 0),
-        (23, 0),
-        (19, 0)
-    ]
-
-    if (vladivostok_time.hour, vladivostok_time.minute) in delay_times:
-        await asyncio.sleep(180)
-
     current_day_vladivostok = datetime.now(vladivostok_tz).weekday()
 
     advertisements = load_table.advertisements
@@ -631,7 +615,9 @@ async def repeat_send_problems_advertisements(bot, chats_idx):
                 fetch_advertisement_common(advertisement, merged_dict, vladivostok_time, current_day_vladivostok, True,
                                            True, company)
                 for advertisement in list_advertisements
-                if advertisement['status'] == 'Подключено'
+                if advertisement['status'] == 'Подключено' and
+                   advertisement['start_time'].strip() != vladivostok_time.strftime("%H.%M") and
+                   advertisement['finish_time'].strip() != vladivostok_time.strftime("%H.%M")
             ]
 
             company_message_lines = await asyncio.gather(*task_result)
