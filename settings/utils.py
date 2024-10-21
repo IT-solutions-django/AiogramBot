@@ -265,6 +265,7 @@ async def handle_advertisements(callback: types.CallbackQuery, company_name: str
 
     if isinstance(all_dict, str):
         message = f'<b>Компания "{company_name}"</b>\n\nОшибка получения данных'
+        await callback.message.answer(message, parse_mode='HTML')
     else:
         company_advertisements = load_table.advertisements[company_name]
         vladivostok_tz = pytz.timezone('Asia/Vladivostok')
@@ -277,17 +278,21 @@ async def handle_advertisements(callback: types.CallbackQuery, company_name: str
             if advertisement['status'] == 'Подключено'
         ]
 
+        message_list = []
+        messages = [f'<b>{company_name}</b>\n\n']
         message_lines = await asyncio.gather(*tasks)
-        message = ''.join(message_lines)
+        for text in message_lines:
+            if len(''.join(messages)) + len(text) > 4096:
+                message_list.append(''.join(messages))
+                messages = []
 
-        if not message:
-            message = 'Для данной компании нет "проблемных" объявлений' if is_problem else 'Нет объявлений'
+            messages.append(text)
 
-        message = f'<b>{company_name}</b>\n\n' + message
+        if messages:
+            message_list.append(''.join(messages))
 
-    parts = split_message(message)
-    for part in parts:
-        await callback.message.answer(part, parse_mode='HTML')
+        for part in message_list:
+            await callback.message.answer(part, parse_mode='HTML')
 
     await callback.answer()
 
