@@ -169,19 +169,32 @@ async def callback_get_company_values(callback: types.CallbackQuery) -> None:
 
     elif action == 'advertisements':
         company_info = load_table.advertisements[company_name]
+        messages = []
         message_lines = [f'<b>{company_name}</b>\n\n']
         for idx, info in enumerate(company_info, 1):
+            line_advertisement = []
             id_advertisement = info['_id']
             if info['status'] == 'Подключено':
-                message_lines.append(f'ОБЪЯВЛЕНИЕ {idx}:')
-                message_lines.append(f'url: https://farpost.ru/{id_advertisement}')
-                message_lines.extend([f'{field}: {data}' for field, data in info.items()])
-                message_lines.append('\n')
+                line_advertisement.append(f'<b>ОБЪЯВЛЕНИЕ {idx}</b>:\n')
+                line_advertisement.append(f'url: https://farpost.ru/{id_advertisement}\n')
+                line_advertisement.extend([f'{field}: {data}\n' for field, data in info.items()])
+                line_advertisement.append('\n')
 
-        if len(message_lines) == 1:
-            message_lines.append('Нет подключенных объявлений')
+                if len(''.join(message_lines)) + len(''.join(line_advertisement)) > 4096:
+                    messages.append(''.join(message_lines))
+                    message_lines = []
 
-        message = '\n'.join(message_lines)
+                message_lines.extend(line_advertisement)
+
+        if message_lines:
+            messages.append(''.join(message_lines))
+
+        for part in messages:
+            await callback.message.answer(part, parse_mode='HTML')
+
+        await callback.answer()
+
+        return
 
     elif action == 'price':
         company_name = callback.data.split("price_")[1]
