@@ -1,4 +1,5 @@
 import asyncio
+from googleapiclient.errors import HttpError
 from settings.quickstart import main
 from typing import List, Dict, Optional, Any
 from settings.logging_settings import logger
@@ -14,11 +15,21 @@ advertisements: Dict[str, List[Dict[str, str]]] = {}
 advertisements_options: Dict[str, List[Dict[str, str]]] = {}
 
 
-async def load_data_from_sheet(service: Any, range_name: str) -> Optional[List[List[str]]]:
+async def load_data_from_sheet(service: Any, range_name: str, retries: int = 3) -> Optional[List[List[str]]]:
     sheet = service.spreadsheets()
-    result = await asyncio.to_thread(sheet.values().get(spreadsheetId=SPREADSHEET_ID, range=range_name).execute)
-    values = result.get('values', [])
-    return values if values else None
+
+    for attempt in range(retries):
+        try:
+            result = await asyncio.to_thread(sheet.values().get(spreadsheetId=SPREADSHEET_ID, range=range_name).execute)
+            values = result.get('values', [])
+            return values if values else None
+        except HttpError as e:
+            logger.warning(f"Ошибка при загрузке данных: {e}. Попытка {attempt + 1} из {retries}")
+            if attempt < retries - 1:
+                await asyncio.sleep(2 ** attempt)
+            else:
+                logger.error("Превышено количество попыток загрузки данных.")
+                return None
 
 
 async def process_data(values: List[List[str]], exclude_key: str) -> Dict[str, List[Dict[str, str]]]:
@@ -63,4 +74,3 @@ async def load_companies_from_sheet(service: Any) -> None:
         advertisements_options = await process_data(values_2, 'options')
 
     logger.info('Загрузка данных завершилась')
-

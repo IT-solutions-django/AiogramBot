@@ -16,8 +16,7 @@ def schedule_daily_data_loading():
     scheduler.add_job(
         load_table.load_companies_from_sheet,
         'cron',
-        hour=20,
-        minute=50,
+        minute=0,
         args=[load_table.service]
     )
     scheduler.start()
@@ -28,7 +27,7 @@ def schedule_problems_advertisements(bot, chats_idx):
     scheduler = AsyncIOScheduler(timezone=vladivostok_tz)
     scheduler.add_job(
         repeat_send_problems_advertisements,
-        CronTrigger(hour='7-23', minute=30, timezone=vladivostok_tz),
+        CronTrigger(hour='7-23,0', minute='0,30', timezone=vladivostok_tz),
         args=[bot, chats_idx]
     )
     scheduler.start()

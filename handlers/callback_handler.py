@@ -11,7 +11,6 @@ from settings.utils import split_message, show_options, get_balance, get_server,
     handle_advertisements, execute_ssh_command, get_service_logs, fetch_data_for_advertisement, \
     problems_advertisements, fetch_advertisement_stats
 from settings.static import Message
-from main import bot
 import aiogram.exceptions
 
 router = Router()
@@ -36,20 +35,30 @@ async def callback_get_company_options(callback: types.CallbackQuery) -> None:
     options = callback.data
     company_info = load_table.advertisements_options[options]
 
+    messages = []
     message_lines = [f'<b>Options "{options}"</b>\n\n']
+    current_length = len(message_lines[0])
     for idx, info in enumerate(company_info, 1):
         if info['status'] == 'Подключено':
-            message_lines.append(f'ОБЪЯВЛЕНИЕ {idx}:')
-            message_lines.extend([f'{field}: {data}' for field, data in info.items()])
-            message_lines.append('\n')
+            announcement_lines = [f'<b>ОБЪЯВЛЕНИЕ {idx}</b>:']
+            announcement_lines.extend([f'{field}: {data}' for field, data in info.items()])
+            announcement_lines.append('\n')
 
-    if len(message_lines) == 1:
-        message_lines.append('Нет подключенных объявлений')
+            announcement_text = '\n'.join(announcement_lines)
+            announcement_length = len(announcement_text)
 
-    message = '\n'.join(message_lines)
+            if current_length + announcement_length > 4096:
+                messages.append('\n'.join(message_lines).strip())
+                message_lines = []
+                current_length = len(message_lines)
 
-    parts = split_message(message)
-    for part in parts:
+            message_lines.extend(announcement_lines)
+            current_length += announcement_length
+
+    if message_lines:
+        messages.append('\n'.join(message_lines).strip())
+
+    for part in messages:
         await callback.message.answer(part, parse_mode='HTML')
 
     await callback.answer()
@@ -108,16 +117,36 @@ async def get_options_price(callback: types.CallbackQuery):
     tasks = [fetch_data_for_advertisement(advertisements) for advertisements in advertisements_options if
              advertisements['status'] == 'Подключено']
     results = await asyncio.gather(*tasks)
+    grouped_results = {}
 
-    message_lines = ''.join(results)
+    messages = []
+    messages_lines = [f'<b>Options "{options}"</b>\n\n']
 
-    if not message_lines:
-        message_lines = f'<b>Options "{options}"</b>\n\nНет объявлений'
-    else:
-        message_lines = f'<b>Options "{options}"</b>\n\n' + message_lines
+    for item in results:
+        if isinstance(item, str):
+            messages_lines.append(f'{item}\n\n')
+        elif isinstance(item, dict):
+            for company, info in item.items():
+                if company not in grouped_results:
+                    grouped_results[company] = [info]
+                else:
+                    grouped_results[company].append(info)
 
-    parts = split_message(message_lines)
-    for part in parts:
+    for company, data_list in grouped_results.items():
+        company_lines = [f'{company}:\n']
+        for data in data_list:
+            company_lines.append(f'{data}\n')
+
+        if len(''.join(messages_lines)) + len(''.join(company_lines)) > 4096:
+            messages.append(''.join(messages_lines).strip())
+            messages_lines = []
+
+        messages_lines.extend(company_lines)
+
+    if messages_lines:
+        messages.append(''.join(messages_lines).strip())
+
+    for part in messages:
         await callback.message.answer(part, parse_mode='HTML')
 
     await callback.answer()
@@ -140,10 +169,12 @@ async def callback_get_company_values(callback: types.CallbackQuery) -> None:
 
     elif action == 'advertisements':
         company_info = load_table.advertisements[company_name]
-        message_lines = [f'<b>Компания "{company_name}"</b>\n\n']
+        message_lines = [f'<b>{company_name}</b>\n\n']
         for idx, info in enumerate(company_info, 1):
+            id_advertisement = info['_id']
             if info['status'] == 'Подключено':
                 message_lines.append(f'ОБЪЯВЛЕНИЕ {idx}:')
+                message_lines.append(f'url: https://farpost.ru/{id_advertisement}')
                 message_lines.extend([f'{field}: {data}' for field, data in info.items()])
                 message_lines.append('\n')
 
@@ -208,7 +239,8 @@ async def get_statistics_for_date(callback: types.CallbackQuery):
     advertisements = load_table.advertisements[company]
     boobs = load_table.companies[company].get('Boobs', '')
 
-    tasks = [fetch_advertisement_stats(advertisement['_id'], boobs, date) for advertisement in advertisements if
+    tasks = [fetch_advertisement_stats(advertisement['_id'], boobs, date, advertisement['section']) for advertisement in
+             advertisements if
              advertisement['status'] == 'Подключено']
 
     stat_company = await asyncio.gather(*tasks)

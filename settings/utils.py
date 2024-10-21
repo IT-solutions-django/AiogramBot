@@ -96,7 +96,8 @@ async def fetch_data_balance(session, client_name, boob_value, balance_url, deta
             if balance_response.status == 200:
                 balance_data = await balance_response.json()
                 balance = balance_data.get('canSpend')
-                messages.append(f'<b>Клиент</b>: {client_name} ({boob_value["Company"]}), <b>Баланс</b>: {balance}.')
+                messages.append(
+                    f'<b>Клиент: {client_name.strip()} ({boob_value["Company"].strip()})</b>\nБаланс: {balance}')
             else:
                 messages.append(f'Ошибка получения баланса для {client_name}\n')
 
@@ -131,10 +132,10 @@ async def fetch_data_balance(session, client_name, boob_value, balance_url, deta
                     messages.append(f'Ошибка при получении данных о пополнении для {client_name}\n')
                     break
         if len_replenishments == 0:
-            messages.append(f'Для {client_name} сегодня пополнений не было.\n')
+            messages.append(f'Сегодня пополнений не было\n')
         else:
             messages.append(
-                f'<b>Пополнения</b> для {client_name}: {len_replenishments} пополнение(ий) сегодня.\n')
+                f'Сегодня было пополнение баланса\n')
     except Exception as e:
         messages.append(f'Ошибка для {client_name}: {str(e)}\n')
 
@@ -154,6 +155,7 @@ async def fetch_advertisement_common(advertisement: Dict[str, str], all_dict: Di
                                      vladivostok_time: time, current_day: int,
                                      check_problems: bool = False, check_cause: bool = False, company=None) -> str:
     id_advertisement: str = advertisement['_id']
+    chapter = advertisement['section']
 
     active_day_map: Dict[str, set] = is_day_active()
     active_day: Optional[set] = active_day_map.get(advertisement['weekday_active'], None)
@@ -181,20 +183,24 @@ async def fetch_advertisement_common(advertisement: Dict[str, str], all_dict: Di
                 else:
                     return f'Ошибка получения баланса для {company}\n'
             if not (id_advertisement in all_dict) and (
-                    start_time <= vladivostok_time <= end_time) and is_active_day and balance >= 500:
-                return f'Для объявления "{url}" время не вышло, но его нет и баланс >= 500\n\n'
+                    start_time <= vladivostok_time <= end_time) and is_active_day and balance >= 150:
+                return f'URL: {url}\nОбъявление не приклеено\nАктивные часы: {advertisement['start_time'].strip()} - {advertisement['finish_time'].strip()}\n\n'
+            elif id_advertisement in all_dict and (
+                    not (start_time <= vladivostok_time <= end_time) or not is_active_day):
+                return f'URL: {url}\nОбъявление приклеено\nАктивные часы: {advertisement['start_time'].strip()} - {advertisement['finish_time'].strip()}\n\n'
             else:
                 return ''
         else:
             if id_advertisement in all_dict and (not (start_time <= vladivostok_time <= end_time) or not is_active_day):
-                return f'Для объявления "{url}" время вышло, но оно присутствует\n\n'
+                return f'URL: {url}\nОбъявление приклеено\nАктивные часы: {advertisement['start_time'].strip()} - {advertisement['finish_time'].strip()}\n\n'
             elif not (id_advertisement in all_dict) and (start_time <= vladivostok_time <= end_time) and is_active_day:
-                return f'Для объявления "{url}" время не вышло, но его нет\n\n'
+                return f'URL: {url}\nОбъявление не приклеено\nАктивные часы: {advertisement['start_time'].strip()} - {advertisement['finish_time'].strip()}\n\n'
             else:
                 return ''
     else:
         if id_advertisement in all_dict and (start_time <= vladivostok_time <= end_time) and is_active_day:
-            return f'{all_dict[id_advertisement]["name"]} - {all_dict[id_advertisement]["currencies"]}\n\n'
+            currencies = all_dict[id_advertisement]["currencies"].split(',')
+            return f'URL: https://www.farpost.ru/{id_advertisement}\nРаздел: {chapter}\n{currencies[0]}: {currencies[1]}\n\n'
         elif id_advertisement in all_dict and (
                 not (start_time <= vladivostok_time <= end_time) or not is_active_day):
             return f'Для объявления "{url}" время вышло, но оно присутствует\n\n'
@@ -277,7 +283,7 @@ async def handle_advertisements(callback: types.CallbackQuery, company_name: str
         if not message:
             message = 'Для данной компании нет "проблемных" объявлений' if is_problem else 'Нет объявлений'
 
-        message = f'<b>Компания "{company_name}"</b>\n\n' + message
+        message = f'<b>{company_name}</b>\n\n' + message
 
     parts = split_message(message)
     for part in parts:
@@ -315,13 +321,15 @@ async def get_service_logs() -> tuple:
     return await execute_ssh_command(log_command)
 
 
-async def fetch_data_for_advertisement(advertisements) -> str:
+async def fetch_data_for_advertisement(advertisements) -> Union[dict, str]:
     company_boobs = load_table.companies[advertisements['client']].get('Boobs', '')
     if company_boobs:
         headers = {'Cookie': f'boobs={company_boobs}'}
         base_url = static.Urls.URL_ACTUAL_BULLETINS.value
         page = 1
         all_dict = {}
+
+        company_data = {}
 
         while True:
             url = f"{base_url}?page={page}"
@@ -364,9 +372,22 @@ async def fetch_data_for_advertisement(advertisements) -> str:
             advertisements, all_dict, vladivostok_time, current_day_vladivostok, False
         )
 
-        return f'Компания "{advertisements["client"]}". ' + task
+        company_data[advertisements["client"]] = task
+
+        return company_data
     else:
         return f'Для компании "{advertisements["client"]} - {advertisements["city"]}" действие недоступно\n\n'
+
+
+async def problems_advertisements_balance(balance_url, boobs, company):
+    headers = {'Cookie': f"boobs={boobs}"}
+    async with aiohttp.request('get', balance_url, headers=headers, allow_redirects=False) as balance_response:
+        if balance_response.status == 200:
+            balance_data = await balance_response.json()
+            balance = balance_data.get('canSpend')
+            return {company: f"Баланс: {balance} ₽"}
+        else:
+            return {company: "Ошибка получения баланс"}
 
 
 async def problems_advertisements():
@@ -413,16 +434,25 @@ async def problems_advertisements():
             if filtered_messages:
                 company_messages[company] = filtered_messages
 
+    balance_url = static.Urls.BALANCE_URL.value
+    task_balance = [problems_advertisements_balance(balance_url, load_table.companies[company]['Boobs'], company) for
+                    company in
+                    company_messages]
+
+    balances = await asyncio.gather(*task_balance)
+
+    merged_balances = {key: value for d in balances for key, value in d.items()}
+
     message = ''
     for company, messages in company_messages.items():
-        message += f'Компания "{company}":\n'
+        message += f'{company}:\n{merged_balances[company]}\n\n'
         message += ''.join(messages)
         message += "\n"
 
     return message
 
 
-async def fetch_advertisement_stats(id_advertisement, boobs, current_date):
+async def fetch_advertisement_stats(id_advertisement, boobs, current_date, section):
     url = static.Urls.URL_STATISTIC.get_url(ad_id=id_advertisement, current_date=current_date)
     headers = {'Cookie': f'boobs={boobs}'}
 
@@ -444,17 +474,23 @@ async def fetch_advertisement_stats(id_advertisement, boobs, current_date):
                 else:
                     cnt = cnt[current_date]
 
-                contactsCount = data.get('contactsCount', '')
-                if not contactsCount:
-                    contactsCount = 0
+                if section != 'Вакансии':
+                    contactsCount = data.get('contactsCount', '')
+                    if not contactsCount:
+                        contactsCount = 0
+                    else:
+                        contactsCount = contactsCount[current_date]
                 else:
-                    contactsCount = contactsCount[current_date]
+                    contactsCount = None
 
-                jobResponses = data.get('jobResponses', '')
-                if not jobResponses:
-                    jobResponses = 0
+                if section == 'Вакансии':
+                    jobResponses = data.get('jobResponses', '')
+                    if not jobResponses:
+                        jobResponses = 0
+                    else:
+                        jobResponses = jobResponses[current_date]
                 else:
-                    jobResponses = jobResponses[current_date]
+                    jobResponses = None
 
                 bookmarked = data.get('bookmarked', '')
                 if not bookmarked:
@@ -468,9 +504,15 @@ async def fetch_advertisement_stats(id_advertisement, boobs, current_date):
                 else:
                     transactions = Decimal(transactions[current_date]).quantize(Decimal('0.00'), rounding=ROUND_HALF_UP)
 
-            return {id_advertisement: {'Просмотр объявлений': cnt, 'Просмотр контактов': contactsCount,
-                                       'Добавлений в избранное': bookmarked, 'Отклик': jobResponses,
-                                       'Платные операции': transactions}}
+            return {
+                id_advertisement: {
+                    'Просмотр объявлений': cnt,
+                    **({'Просмотр контактов': contactsCount} if contactsCount is not None else {}),
+                    'Добавлений в избранное': bookmarked,
+                    **({'Отклик': jobResponses} if jobResponses is not None else {}),
+                    'Платные операции': transactions
+                }
+            }
         else:
             return 'Ошибка получения данных'
 
@@ -491,7 +533,7 @@ async def send_statistics_to_users(bot):
                 id_advertisement = advertisement['_id']
                 boobs = companies[company]['Boobs']
 
-                task = fetch_advertisement_stats(id_advertisement, boobs, current_date)
+                task = fetch_advertisement_stats(id_advertisement, boobs, current_date, advertisement['section'])
                 tasks.append(task)
 
         stat_company = await asyncio.gather(*tasks)
@@ -539,6 +581,18 @@ async def send_statistics_to_users(bot):
 async def repeat_send_problems_advertisements(bot, chats_idx):
     vladivostok_tz = pytz.timezone('Asia/Vladivostok')
     vladivostok_time = datetime.now(vladivostok_tz).time()
+
+    delay_times = [
+        (7, 0),
+        (8, 0),
+        (9, 0),
+        (10, 0),
+        (8, 30)
+    ]
+
+    if (vladivostok_time.hour, vladivostok_time.minute) in delay_times:
+        await asyncio.sleep(180)
+
     current_day_vladivostok = datetime.now(vladivostok_tz).weekday()
 
     advertisements = load_table.advertisements
@@ -581,16 +635,23 @@ async def repeat_send_problems_advertisements(bot, chats_idx):
             if filtered_messages:
                 company_messages[company] = filtered_messages
 
+    balance_url = static.Urls.BALANCE_URL.value
+    task_balance = [problems_advertisements_balance(balance_url, load_table.companies[company]['Boobs'], company) for
+                    company in
+                    company_messages]
+
+    balances = await asyncio.gather(*task_balance)
+
+    merged_balances = {key: value for d in balances for key, value in d.items()}
+
     message = ''
     for company, messages in company_messages.items():
-        message += f'Компания "{company}":\n'
+        message += f'{company}:\n{merged_balances[company]}\n\n'
         message += ''.join(messages)
         message += "\n"
 
     if not message:
-        message = 'Ежечасная рассылка\n\nДля компаний нет "проблемных" объявлений по заданным условиям'
-    else:
-        message = 'Ежечасная рассылка\n\n' + message
+        message = 'Для компаний нет "проблемных" объявлений по заданным условиям'
 
     parts = split_message(message)
 
