@@ -587,7 +587,12 @@ async def repeat_send_problems_advertisements(bot, chats_idx):
         (8, 0),
         (9, 0),
         (10, 0),
-        (8, 30)
+        (8, 30),
+        (20, 0),
+        (21, 0),
+        (22, 0),
+        (23, 0),
+        (19, 0)
     ]
 
     if (vladivostok_time.hour, vladivostok_time.minute) in delay_times:
