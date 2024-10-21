@@ -245,7 +245,7 @@ async def get_statistics_for_date(callback: types.CallbackQuery):
 
     stat_company = await asyncio.gather(*tasks)
 
-    lines = [f'{company} ({date}):\n']
+    lines = [f'<b>{company} ({date}):\n</b>']
 
     total_sums = {}
 
@@ -266,7 +266,7 @@ async def get_statistics_for_date(callback: types.CallbackQuery):
 
         lines.append('\n')
 
-    lines.append('Общие итоги:\n')
+    lines.append('<b>Общие итоги</b>:\n')
     for field, total in total_sums.items():
         lines.append(f'{field}: {total}\n')
 
@@ -275,7 +275,7 @@ async def get_statistics_for_date(callback: types.CallbackQuery):
     try:
         parts = split_message(text)
         for part in parts:
-            await callback.message.answer(text=part)
+            await callback.message.answer(text=part, parse_mode='HTML')
     except aiogram.exceptions.TelegramBadRequest:
         logger.error(f'Бот не может отправить "{company}" сообщение по данным статистики объявлений')
         await callback.message.answer(static.Message.STATISTICS_ERROR.value)
