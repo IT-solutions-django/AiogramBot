@@ -621,8 +621,8 @@ async def repeat_send_problems_advertisements(bot, chats_idx):
                                            True, company)
                 for advertisement in list_advertisements
                 if advertisement['status'] == 'Подключено' and
-                   advertisement['start_time'].strip() != vladivostok_time.strftime("%H.%M") and
-                   advertisement['finish_time'].strip() != vladivostok_time.strftime("%H.%M")
+                   advertisement['start_time'].strip() != vladivostok_time.strftime("%-H.%M") and
+                   advertisement['finish_time'].strip() != vladivostok_time.strftime("%-H.%M")
             ]
 
             company_message_lines = await asyncio.gather(*task_result)
