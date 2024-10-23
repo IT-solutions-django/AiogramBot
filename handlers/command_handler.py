@@ -71,4 +71,5 @@ async def statistics_advertisements_command(message):
 
 @router.message(Command('table'))
 async def send_url_table(message):
-    await message.answer(f'Ссылка на таблицу (страница JSON)\n\n{static.Urls.URL_TABLE.value}')
+    await message.answer(f'<b>Ссылка на таблицу (страница JSON)</b>\n\n{static.Urls.URL_TABLE.value}',
+                         parse_mode='HTML')
