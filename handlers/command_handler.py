@@ -67,3 +67,8 @@ async def get_problems_advertisements_command(message: types.Message) -> None:
 @router.message(Command('statistics_advertisements'))
 async def statistics_advertisements_command(message):
     await show_options(message, load_table.companies, 'компанию', 'statistics')
+
+
+@router.message(Command('table'))
+async def send_url_table(message):
+    await message.answer(f'Ссылка на таблицу (страница JSON)\n\n{static.Urls.URL_TABLE}')

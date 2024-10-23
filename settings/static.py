@@ -17,6 +17,7 @@ class Urls(Enum):
     URL_ADVERTISEMENT: str = 'https://www.farpost.ru/{id_advertisement}/'
     URL_ACTUAL_BULLETINS: str = 'https://www.farpost.ru/personal/actual/bulletins'
     URL_STATISTIC: str = 'https://www.farpost.ru/bulletin/{ad_id}/stat/charts-data?from={current_date}&to={current_date}'
+    URL_TABLE: str = 'https://docs.google.com/spreadsheets/d/1NROUgrCfvtKfccK8iJm__V3qo7uKTC3KsJhn578S7qY/edit?gid=351863719#gid=351863719'
 
     def get_url(self, **kwargs):
         return self.value.format(**kwargs)
