@@ -576,8 +576,10 @@ async def send_statistics_to_users(bot):
             if companies[company]['Chat_id'] == '-':
                 continue
             parts = split_message(text)
-            for part in parts:
-                await bot.send_message(chat_id=companies[company]['Chat_id'], text=part)
+            chats_id = companies[company]['Chat_id'].split('\n')
+            for chat_id in chats_id:
+                for part in parts:
+                    await bot.send_message(chat_id=chat_id, text=part)
         except aiogram.exceptions.TelegramBadRequest:
             logger.error(f'Бот не может отправить "{company}" сообщение по данным статистики объявлений')
             continue
