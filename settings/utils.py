@@ -10,7 +10,7 @@ from paramiko.ssh_exception import AuthenticationException, SSHException
 from settings import load_table
 from typing import Optional, Dict, List, Union
 from bs4 import BeautifulSoup
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 import locale
 import paramiko
 from dotenv import dotenv_values
@@ -18,6 +18,7 @@ from settings import static
 from keyboards.keyboard import buttons_command_server
 from settings.logging_settings import logger
 from decimal import Decimal, ROUND_HALF_UP
+from collections import defaultdict
 
 locale.setlocale(locale.LC_TIME, 'ru_RU.UTF-8')
 
@@ -656,3 +657,92 @@ async def repeat_send_problems_advertisements(bot, chats_idx):
     for chat_id in chats_idx:
         for part in parts:
             await bot.send_message(chat_id=chat_id, text=part)
+
+
+async def statistics_to_users_friday():
+    companies = load_table.companies
+    advertisements = load_table.advertisements
+
+    vladivostok_tz = pytz.timezone('Asia/Vladivostok')
+    current_date = datetime.now(vladivostok_tz)
+
+    dates_last_week = [(current_date - timedelta(days=i)).strftime('%Y-%m-%d') for i in range(5)]
+
+    statistics_info = {}
+
+    for company, list_advertisement in advertisements.items():
+        statistics_info[company] = {}
+        for advertisement in list_advertisement:
+            if advertisement['status'] == 'Подключено':
+                id_advertisement = advertisement['_id']
+                boobs = companies[company]['Boobs']
+
+                tasks = []
+                for date in dates_last_week:
+                    task = fetch_advertisement_stats(id_advertisement, boobs, date, advertisement['section'])
+                    tasks.append((date, task))
+
+                stat_advertisement = await asyncio.gather(*[task for _, task in tasks])
+                statistics_info[company][id_advertisement] = {}
+
+                for (date, _), result in zip(tasks, stat_advertisement):
+                    statistics_info[company][id_advertisement][date] = result
+
+    summarized_info = defaultdict(lambda: defaultdict(lambda: {
+        'Просмотр объявлений': 0,
+        'Просмотр контактов': 0,
+        'Добавлений в избранное': 0,
+        'Отклик': 0,
+        'Платные операции': Decimal('0.0')
+    }))
+
+    for company, ads in statistics_info.items():
+        for ad_id, dates in ads.items():
+            for date, stats in dates.items():
+                if isinstance(stats, dict):
+                    ad_stats = stats[ad_id]
+                    summarized_info[company][ad_id]['Просмотр объявлений'] += int(
+                        ad_stats.get('Просмотр объявлений', 0))
+                    if ad_stats.get('Просмотр контактов') is None:
+                        summarized_info[company][ad_id]['Просмотр контактов'] = -1
+                    else:
+                        summarized_info[company][ad_id]['Просмотр контактов'] += int(ad_stats.get('Просмотр контактов'))
+                    summarized_info[company][ad_id]['Добавлений в избранное'] += int(
+                        ad_stats.get('Добавлений в избранное', 0))
+                    if ad_stats.get('Отклик') is None:
+                        summarized_info[company][ad_id]['Отклик'] = -1
+                    else:
+                        summarized_info[company][ad_id]['Отклик'] += int(ad_stats.get('Отклик'))
+                    summarized_info[company][ad_id]['Платные операции'] += Decimal(
+                        ad_stats.get('Платные операции', '0.0'))
+                elif isinstance(stats, str):
+                    logger.error(f'Для {company} - {ad_id} произошла ошибка')
+                    continue
+
+    return summarized_info, dates_last_week[-1], dates_last_week[0]
+
+
+async def send_statistics_to_users_friday(bot):
+    summarized_info, day_start, day_finish = await statistics_to_users_friday()
+    messages = {}
+    for company, ads in summarized_info.items():
+        company_messages = [f'<b>{company} (с {day_start} по {day_finish})</b>\n\n']
+        for ad_id, totals in ads.items():
+            company_messages.append(f'URL: https://www.farpost.ru/{ad_id}\n')
+            for criteria, total in totals.items():
+                if total == -1:
+                    continue
+                company_messages.append(f'{criteria}: {total}\n')
+            company_messages.append('\n')
+        messages[company] = ''.join(company_messages)
+
+    for company in messages:
+        try:
+            if load_table.companies[company]['Chat_id'] == '-':
+                continue
+            chats_id = load_table.companies[company]['Chat_id'].split('\n')
+            for chat_id in chats_id:
+                await bot.send_message(chat_id=chat_id, text=messages[company], parse_mode='HTML')
+        except aiogram.exceptions.TelegramBadRequest:
+            logger.error(f'Бот не может отправить "{company}" сообщение по данным статистики объявлений')
+            continue

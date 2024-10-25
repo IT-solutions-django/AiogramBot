@@ -4,7 +4,8 @@ from handlers import callback_handler, command_handler
 from dotenv import dotenv_values
 from settings import load_table
 from settings.middleware import AccessMiddleware
-from settings.schedulers import schedule_daily_statistics, schedule_daily_data_loading, schedule_problems_advertisements
+from settings.schedulers import schedule_daily_statistics, schedule_daily_data_loading, \
+    schedule_problems_advertisements, schedule_daily_statistics_friday
 import json
 
 API_TOKEN: str = dotenv_values(".env")['API_TOKEN']
@@ -28,6 +29,7 @@ async def main() -> None:
     schedule_daily_statistics(bot)
     schedule_daily_data_loading()
     schedule_problems_advertisements(bot, chats_idx)
+    schedule_daily_statistics_friday(bot)
 
     await dp.start_polling(bot, skip_updates=True)
 
