@@ -1,7 +1,8 @@
 from aiogram.filters import Command
 from aiogram import types
 from aiogram import Router
-from settings.utils import show_options, get_balance, get_server, problems_advertisements, split_message
+from settings.utils import show_options, get_balance, get_server, problems_advertisements, split_message, \
+    new_repeat_send_problems_advertisements
 from settings import load_table, static
 from settings.static import Message
 from keyboards.keyboard import buttons_start
@@ -73,3 +74,7 @@ async def statistics_advertisements_command(message):
 async def send_url_table(message):
     await message.answer(f'<b>Ссылка на таблицу (страница JSON)</b>\n\n{static.Urls.URL_TABLE.value}',
                          parse_mode='HTML')
+
+# @router.message(Command('new'))
+# async def new(message):
+#     await new_repeat_send_problems_advertisements(message)

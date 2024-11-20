@@ -598,7 +598,7 @@ async def repeat_send_problems_advertisements(bot, chats_idx):
     task_all_dict = [
         load_advertisements_data(company, companies[company].get('Boobs', ''))
         for company in advertisements
-        if companies[company].get('Boobs', '')
+        if companies[company].get('Boobs', '') and company != 'Напарили ДВ'
     ]
 
     all_dict = await asyncio.gather(*task_all_dict)
@@ -614,6 +614,9 @@ async def repeat_send_problems_advertisements(bot, chats_idx):
     company_messages = {}
 
     for company, list_advertisements in advertisements.items():
+        if company == 'Напарили ДВ':
+            continue
+
         if company in [error for error in error_companies]:
             company_messages[company] = ["Ошибка загрузки данных для компании\n"]
             continue
@@ -746,3 +749,124 @@ async def send_statistics_to_users_friday(bot):
         except aiogram.exceptions.TelegramBadRequest:
             logger.error(f'Бот не может отправить "{company}" сообщение по данным статистики объявлений')
             continue
+
+
+'''
+-------------------
+'''
+
+
+# async def rate(company_boobs, dir_id, geo, lemma, company, ad_id):
+#     url = f'https://www.farpost.ru/api/1.0/rate/stick-order-keys?bulletin=111111111&dirId={dir_id}&geoId={geo}&lemma={lemma}'
+#     headers: Dict[str, str] = {'Cookie': f'boobs={company_boobs}'}
+#     async with aiohttp.request('get', url, headers=headers, allow_redirects=False) as response:
+#         if response.status == 200:
+#             content_list = await response.json()
+#             res_list = []
+#
+#             for content in content_list:
+#                 pattern = r"FR60A:0(\d+)\.00"
+#                 match = re.search(pattern, content)
+#
+#                 if match:
+#                     result = int(match.group(1)) - 10000
+#                     res_list.append(result)
+#
+#             res_list.sort(reverse=True)
+#         else:
+#             res_list = ['Ошибка получения данных']
+#
+#         return {
+#             'company': company,
+#             'ad_id': ad_id,
+#             'rates': res_list
+#         }
+#
+#
+# async def new_repeat_send_problems_advertisements(message_co):
+#     vladivostok_tz = pytz.timezone('Asia/Vladivostok')
+#     vladivostok_time = datetime.now(vladivostok_tz).time()
+#
+#     current_day_vladivostok = datetime.now(vladivostok_tz).weekday()
+#
+#     advertisements = load_table.advertisements
+#     companies = load_table.companies
+#
+#     task_all_dict = [
+#         load_advertisements_data(company, companies[company].get('Boobs', ''))
+#         for company in advertisements
+#         if companies[company].get('Boobs', '')
+#     ]
+#
+#     all_dict = await asyncio.gather(*task_all_dict)
+#     merged_dict = {}
+#     error_companies = []
+#
+#     for result in all_dict:
+#         if isinstance(result, dict):
+#             merged_dict.update(result)
+#         elif isinstance(result, str):
+#             error_companies.append(result)
+#
+#     company_messages = {}
+#
+#     rate_company_ads = {}
+#
+#     for company, list_advertisements in advertisements.items():
+#         if company in [error for error in error_companies]:
+#             company_messages[company] = ["Ошибка загрузки данных для компании\n"]
+#             continue
+#
+#         if companies[company].get('Boobs', ''):
+#             task_result = [
+#                 fetch_advertisement_common(advertisement, merged_dict, vladivostok_time, current_day_vladivostok, True,
+#                                            True, company)
+#                 for advertisement in list_advertisements
+#                 if advertisement['status'] == 'Подключено' and
+#                    advertisement['start_time'].strip() != vladivostok_time.strftime("%-H.%M") and
+#                    advertisement['finish_time'].strip() != vladivostok_time.strftime("%-H.%M")
+#             ]
+#
+#             company_message_lines = await asyncio.gather(*task_result)
+#
+#             rate_list = [rate(load_table.companies[company]['Boobs'], advertisement['dir'], advertisement['geo'],
+#                               advertisement['lemma'], company, advertisement['_id']) for advertisement in
+#                          list_advertisements if advertisement['status'] == 'Подключено']
+#             rate_task = await asyncio.gather(*rate_list)
+#             for result in rate_task:
+#                 company = result['company']
+#                 ad_id = result['ad_id']
+#                 rates = result['rates']
+#
+#                 if company not in rate_company_ads:
+#                     rate_company_ads[company] = {}
+#                 rate_company_ads[company][ad_id] = rates
+#
+#             filtered_messages = [msg for msg in company_message_lines if msg]
+#             if filtered_messages:
+#                 company_messages[company] = filtered_messages
+#
+#     print(rate_company_ads)
+#
+#     balance_url = static.Urls.BALANCE_URL.value
+#     task_balance = [problems_advertisements_balance(balance_url, load_table.companies[company]['Boobs'], company) for
+#                     company in
+#                     company_messages]
+#
+#     balances = await asyncio.gather(*task_balance)
+#
+#     merged_balances = {key: value for d in balances for key, value in d.items()}
+#
+#     message = ''
+#     for company, messages in company_messages.items():
+#         message += f'{company}:\n{merged_balances[company]}\n\n'
+#         message += ''.join(messages)
+#         message += "\n"
+#
+#     if not message:
+#         message = 'Для компаний нет "проблемных" объявлений по заданным условиям'
+#
+#     parts = split_message(message)
+#
+#     for part in parts:
+#         await message_co.answer(part)
