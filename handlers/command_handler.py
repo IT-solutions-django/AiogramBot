@@ -104,7 +104,7 @@ async def handle_position(message):
                 company_result[load_table.info_for_id_ad[idx][0]["client"]] = {idx: "Не на своей позиции"}
 
     result_message = '\n\n'.join(
-        f'{client}:\n{"\n".join(f"{ad_id}: {status}" for ad_id, status in ads.items())}'
+        f'{client}:\n' + '\n'.join(f'{ad_id}: {status}' for ad_id, status in ads.items())
         for client, ads in company_result.items()
     )
 
