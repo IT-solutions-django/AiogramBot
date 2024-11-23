@@ -1,6 +1,7 @@
 import asyncio
 import re
-
+import random
+from fake_useragent import UserAgent
 import aiogram.exceptions
 import pytz
 from aiogram.utils.keyboard import InlineKeyboardBuilder
@@ -22,6 +23,14 @@ from collections import defaultdict
 
 locale.setlocale(locale.LC_TIME, 'ru_RU.UTF-8')
 
+proxies = [
+    "3nbFwoBiE8TZ:RNW78Fm5@pool.proxy.market:10384",
+    "3nbFwoBiE8TZ:RNW78Fm5@pool.proxy.market:10385",
+    "3nbFwoBiE8TZ:RNW78Fm5@pool.proxy.market:10386",
+    "3nbFwoBiE8TZ:RNW78Fm5@pool.proxy.market:10387",
+    "3nbFwoBiE8TZ:RNW78Fm5@pool.proxy.market:10388",
+]
+
 
 def is_day_active() -> Dict[str, set]:
     day_info_map = {
@@ -36,6 +45,23 @@ def is_day_active() -> Dict[str, set]:
 def split_message(text: str) -> List[str]:
     return [text[i:i + static.MessageLength.MAX_MESSAGE_LENGTH.value] for i in
             range(0, len(text), static.MessageLength.MAX_MESSAGE_LENGTH.value)]
+
+
+def check_position(position_ad):
+    company_result = {}
+
+    for idx, price in position_ad.items():
+        position_ad_table = int(load_table.info_for_id_ad[idx][0]["position"])
+        if len(price) >= position_ad_table:
+            cent = price[position_ad_table - 1]
+            if cent % 5 != 0:
+                company_result[idx] = 'На своей позиции'
+            else:
+                company_result[idx] = 'Не на своей позиции'
+        else:
+            company_result[idx] = 'Не на своей позиции'
+
+    return company_result
 
 
 async def show_options(obj: Union[types.CallbackQuery, types.Message], data_dict: Dict[str, dict], exclude_key: str,
@@ -153,10 +179,15 @@ async def get_server(obj: Union[types.CallbackQuery, types.Message]) -> None:
 
 
 async def fetch_advertisement_common(advertisement: Dict[str, str], all_dict: Dict[str, Dict[str, str]],
-                                     vladivostok_time: time, current_day: int,
+                                     vladivostok_time: time, current_day: int, position_ad=None,
                                      check_problems: bool = False, check_cause: bool = False, company=None) -> str:
     id_advertisement: str = advertisement['_id']
     chapter = advertisement['section']
+
+    if position_ad:
+        company_result = check_position(position_ad)
+    else:
+        company_result = None
 
     active_day_map: Dict[str, set] = is_day_active()
     active_day: Optional[set] = active_day_map.get(advertisement['weekday_active'], None)
@@ -185,9 +216,13 @@ async def fetch_advertisement_common(advertisement: Dict[str, str], all_dict: Di
                     return f'Ошибка получения баланса для {company}\n'
             if not (id_advertisement in all_dict) and (
                     start_time <= vladivostok_time <= end_time) and is_active_day and balance >= 150:
+                if company_result and id_advertisement in company_result:
+                    return f'URL: {url}\nОбъявление не приклеено\n{company_result[id_advertisement]}\nАктивные часы: {advertisement["start_time"].strip()} - {advertisement["finish_time"].strip()}\n\n'
                 return f'URL: {url}\nОбъявление не приклеено\nАктивные часы: {advertisement["start_time"].strip()} - {advertisement["finish_time"].strip()}\n\n'
             elif id_advertisement in all_dict and (
                     not (start_time <= vladivostok_time <= end_time) or not is_active_day):
+                if company_result and id_advertisement in company_result:
+                    return f'URL: {url}\nОбъявление приклеено\n{company_result[id_advertisement]}\nАктивные часы: {advertisement["start_time"].strip()} - {advertisement["finish_time"].strip()}\n\n'
                 return f'URL: {url}\nОбъявление приклеено\nАктивные часы: {advertisement["start_time"].strip()} - {advertisement["finish_time"].strip()}\n\n'
             else:
                 return ''
@@ -595,6 +630,8 @@ async def repeat_send_problems_advertisements(bot, chats_idx):
     advertisements = load_table.advertisements
     companies = load_table.companies
 
+    position_ad = await position()
+
     task_all_dict = [
         load_advertisements_data(company, companies[company].get('Boobs', ''))
         for company in advertisements
@@ -623,7 +660,8 @@ async def repeat_send_problems_advertisements(bot, chats_idx):
 
         if companies[company].get('Boobs', ''):
             task_result = [
-                fetch_advertisement_common(advertisement, merged_dict, vladivostok_time, current_day_vladivostok, True,
+                fetch_advertisement_common(advertisement, merged_dict, vladivostok_time, current_day_vladivostok,
+                                           position_ad, True,
                                            True, company)
                 for advertisement in list_advertisements
                 if advertisement['status'] == 'Подключено' and
@@ -749,3 +787,58 @@ async def send_statistics_to_users_friday(bot):
         except aiogram.exceptions.TelegramBadRequest:
             logger.error(f'Бот не может отправить "{company}" сообщение по данным статистики объявлений')
             continue
+
+
+async def fetch_url(url, cookies, headers):
+    async with aiohttp.ClientSession(cookies=cookies, headers=headers) as session:
+        async with session.post(url) as response:
+            if response.status == 200:
+                return await response.json()
+            return {"error": f"Request failed with status {response.status}"}
+
+
+async def position():
+    position_advertisements = load_table.position_advertisements
+    base_url = "https://www.farpost.ru/api/1.0/rate/stick-order-keys"
+    cookies = {
+        "boobs": "v4.local.97tIvFnOqoJnuZpltEhNdijYvX-yXWsNqKZDYunaEjZ2l8msd0S23OnO6F3rTwV-WElEugzEGxkxgm7M6MHk680Kcg0R9zd2-R6jML5Zxvyo7OCcew26DbJI7GvmTqwp2E-xPxFOqpG8cTb3bMkpyqokN1JOqGZKf0OWlCMUkxUKxtpD1rb4y1hWqqjM1yU1NftfgqU-IlaeAHAoZczAAX1aoVl51o8.eyJ1c2VySWQiOjMyNTYyMzI3fQ.u1f0dc97",
+        "ring": "9a5680d6f1193cccf046602f5d4b5025",
+    }
+    headers = {
+        "User-Agent": UserAgent().random,
+        "X-Requested-With": "XMLHttpRequest",
+        "Referer": "https://www.farpost.ru",
+    }
+
+    for params in position_advertisements:
+        geo_ad, lemma_ad, dir_ad = params
+        query_params = f"?bulletin=11111111&dirId={dir_ad}&geoId={geo_ad}&lemma={lemma_ad}"
+        url = base_url + query_params
+
+        try:
+            response = await fetch_url(url, cookies, headers)
+            res_list = []
+
+            for content in response:
+                pattern = r"FR60A:0(\d+)\.00"
+                match = re.search(pattern, content)
+
+                if match:
+                    result = int(match.group(1)) - 10000
+                    res_list.append(result)
+
+            res_list.sort(reverse=True)
+
+            position_advertisements[params]["price"] = res_list
+        except Exception as e:
+            print("Error:", e)
+
+        await asyncio.sleep(random.uniform(5, 10))
+
+    result = {}
+
+    for key, value in position_advertisements.items():
+        for idx, ad_id in enumerate(value["idx"]):
+            result[ad_id] = value["price"]
+
+    return result

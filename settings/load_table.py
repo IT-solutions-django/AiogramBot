@@ -13,6 +13,8 @@ RANGE_NAME_2: str = "JSON!A1:AB"
 companies: Dict[str, Dict[str, str]] = {}
 advertisements: Dict[str, List[Dict[str, str]]] = {}
 advertisements_options: Dict[str, List[Dict[str, str]]] = {}
+position_advertisements = {}
+info_for_id_ad = {}
 
 
 async def load_data_from_sheet(service: Any, range_name: str, retries: int = 3) -> Optional[List[List[str]]]:
@@ -57,7 +59,7 @@ async def process_data(values: List[List[str]], exclude_key: str) -> Dict[str, L
 async def load_companies_from_sheet(service: Any) -> None:
     logger.info('Началась загрузка данных')
 
-    global companies, advertisements, advertisements_options
+    global companies, advertisements, advertisements_options, position_advertisements, info_for_id_ad
 
     values_1: Optional[List[List[str]]] = await load_data_from_sheet(service, RANGE_NAME)
     if values_1:
@@ -72,5 +74,24 @@ async def load_companies_from_sheet(service: Any) -> None:
     if values_2:
         advertisements = await process_data(values_2, 'client')
         advertisements_options = await process_data(values_2, 'options')
+
+    value_3 = await load_data_from_sheet(service, RANGE_NAME_2)
+    if value_3:
+        for row in value_3[1:]:
+            if row[7] == 'Снято':
+                continue
+            id_ad = row[8]
+            dir_ad = row[6]
+            geo_ad = row[3]
+            lemma_ad = row[5]
+            params = (geo_ad, lemma_ad, dir_ad)
+            if params in position_advertisements:
+                position_advertisements[params]['idx'].append(id_ad)
+            else:
+                position_advertisements[params] = {'idx': [id_ad]}
+
+    values_4 = await load_data_from_sheet(service, RANGE_NAME_2)
+    if values_4:
+        info_for_id_ad = await process_data(values_2, '_id')
 
     logger.info('Загрузка данных завершилась')
