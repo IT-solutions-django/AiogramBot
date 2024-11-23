@@ -464,7 +464,8 @@ async def problems_advertisements():
 
         if companies[company].get('Boobs', ''):
             task_result = [
-                fetch_advertisement_common(advertisement, merged_dict, vladivostok_time, current_day_vladivostok, True)
+                fetch_advertisement_common(advertisement, merged_dict, vladivostok_time, current_day_vladivostok,
+                                           check_problems=True)
                 for advertisement in list_advertisements
                 if advertisement['status'] == 'Подключено'
             ]
