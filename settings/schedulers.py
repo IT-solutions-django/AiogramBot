@@ -17,7 +17,7 @@ def schedule_daily_data_loading():
     scheduler.add_job(
         load_table.load_companies_from_sheet,
         'cron',
-        minute=0,
+        minute='0,30',
         args=[load_table.service]
     )
     scheduler.start()
