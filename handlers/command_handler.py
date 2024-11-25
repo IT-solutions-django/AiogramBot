@@ -103,15 +103,26 @@ async def handle_position(message):
             else:
                 company_result[load_table.info_for_id_ad[idx][0]["client"]] = {idx: "Не на своей позиции"}
 
-    result_message = '\n\n'.join(
-        f'{client}:\n' + '\n'.join(f'{ad_id}: {status}' for ad_id, status in ads.items())
-        for client, ads in company_result.items()
-    )
-
-    if not result_message:
+    if not company_result:
         await message.answer("Нет данных о позициях.")
         return
 
-    parts = split_message(result_message)
-    for part in parts:
+    message_list = ['<b>Позиции объявлений\n\n</b>']
+    message_current_list = []
+    result_message_list = []
+
+    for client, ads in company_result.items():
+        message_current_list.append(f'<b>{client}:</b>\n')
+        for ad_id, status in ads.items():
+            message_current_list.append(f'URL: https://www.farpost.ru/{ad_id}\nОбъявление <b>{status}</b>\n\n')
+        message_current_list.append('\n')
+        if len(''.join(message_list)) + len(''.join(message_current_list)) >= 4096:
+            result_message_list.append(''.join(message_list))
+            message_list = []
+        message_list.append(''.join(message_current_list))
+        message_current_list = []
+
+    result_message_list.append(''.join(message_list))
+
+    for part in result_message_list:
         await message.answer(text=part, parse_mode='HTML')

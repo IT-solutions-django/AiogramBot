@@ -179,15 +179,10 @@ async def get_server(obj: Union[types.CallbackQuery, types.Message]) -> None:
 
 
 async def fetch_advertisement_common(advertisement: Dict[str, str], all_dict: Dict[str, Dict[str, str]],
-                                     vladivostok_time: time, current_day: int, position_ad=None,
+                                     vladivostok_time: time, current_day: int,
                                      check_problems: bool = False, check_cause: bool = False, company=None) -> str:
     id_advertisement: str = advertisement['_id']
     chapter = advertisement['section']
-
-    if position_ad:
-        company_result = check_position(position_ad)
-    else:
-        company_result = None
 
     active_day_map: Dict[str, set] = is_day_active()
     active_day: Optional[set] = active_day_map.get(advertisement['weekday_active'], None)
@@ -216,13 +211,9 @@ async def fetch_advertisement_common(advertisement: Dict[str, str], all_dict: Di
                     return f'Ошибка получения баланса для {company}\n'
             if not (id_advertisement in all_dict) and (
                     start_time <= vladivostok_time <= end_time) and is_active_day and balance >= 150:
-                if company_result and id_advertisement in company_result:
-                    return f'URL: {url}\nОбъявление не приклеено\n{company_result[id_advertisement]}\nАктивные часы: {advertisement["start_time"].strip()} - {advertisement["finish_time"].strip()}\n\n'
                 return f'URL: {url}\nОбъявление не приклеено\nАктивные часы: {advertisement["start_time"].strip()} - {advertisement["finish_time"].strip()}\n\n'
             elif id_advertisement in all_dict and (
                     not (start_time <= vladivostok_time <= end_time) or not is_active_day):
-                if company_result and id_advertisement in company_result:
-                    return f'URL: {url}\nОбъявление приклеено\n{company_result[id_advertisement]}\nАктивные часы: {advertisement["start_time"].strip()} - {advertisement["finish_time"].strip()}\n\n'
                 return f'URL: {url}\nОбъявление приклеено\nАктивные часы: {advertisement["start_time"].strip()} - {advertisement["finish_time"].strip()}\n\n'
             else:
                 return ''
@@ -631,8 +622,6 @@ async def repeat_send_problems_advertisements(bot, chats_idx):
     advertisements = load_table.advertisements
     companies = load_table.companies
 
-    position_ad = await position()
-
     task_all_dict = [
         load_advertisements_data(company, companies[company].get('Boobs', ''))
         for company in advertisements
@@ -661,8 +650,7 @@ async def repeat_send_problems_advertisements(bot, chats_idx):
 
         if companies[company].get('Boobs', ''):
             task_result = [
-                fetch_advertisement_common(advertisement, merged_dict, vladivostok_time, current_day_vladivostok,
-                                           position_ad, True,
+                fetch_advertisement_common(advertisement, merged_dict, vladivostok_time, current_day_vladivostok, True,
                                            True, company)
                 for advertisement in list_advertisements
                 if advertisement['status'] == 'Подключено' and
@@ -788,6 +776,58 @@ async def send_statistics_to_users_friday(bot):
         except aiogram.exceptions.TelegramBadRequest:
             logger.error(f'Бот не может отправить "{company}" сообщение по данным статистики объявлений')
             continue
+
+
+async def repeat_send_position_advertisements(bot, chats_idx):
+    company_result = {}
+
+    result = await position()
+
+    for idx, price in result.items():
+        position_ad_table = int(load_table.info_for_id_ad[idx][0]["position"])
+        if len(price) >= position_ad_table:
+            cent = price[position_ad_table - 1]
+            if cent % 5 != 0:
+                if load_table.info_for_id_ad[idx][0]["client"] in company_result:
+                    company_result[load_table.info_for_id_ad[idx][0]["client"]].update({idx: "На своей позиции"})
+                else:
+                    company_result[load_table.info_for_id_ad[idx][0]["client"]] = {idx: "На своей позиции"}
+            else:
+                if load_table.info_for_id_ad[idx][0]["client"] in company_result:
+                    company_result[load_table.info_for_id_ad[idx][0]["client"]].update({idx: "Не на своей позиции"})
+                else:
+                    company_result[load_table.info_for_id_ad[idx][0]["client"]] = {idx: "Не на своей позиции"}
+        else:
+            if load_table.info_for_id_ad[idx][0]["client"] in company_result:
+                company_result[load_table.info_for_id_ad[idx][0]["client"]].update({idx: "Не на своей позиции"})
+            else:
+                company_result[load_table.info_for_id_ad[idx][0]["client"]] = {idx: "Не на своей позиции"}
+
+    if not company_result:
+        for chat_id in chats_idx:
+            await bot.send_message(chat_id=chat_id, text="Нет данных о позициях.")
+        return
+
+    message_list = ['<b>Позиции объявлений\n\n</b>']
+    message_current_list = []
+    result_message_list = []
+
+    for client, ads in company_result.items():
+        message_current_list.append(f'<b>{client}:</b>\n')
+        for ad_id, status in ads.items():
+            message_current_list.append(f'URL: https://www.farpost.ru/{ad_id}\nОбъявление <b>{status}</b>\n\n')
+        message_current_list.append('\n')
+        if len(''.join(message_list)) + len(''.join(message_current_list)) >= 4096:
+            result_message_list.append(''.join(message_list))
+            message_list = []
+        message_list.append(''.join(message_current_list))
+        message_current_list = []
+
+    result_message_list.append(''.join(message_list))
+
+    for chat_id in chats_idx:
+        for part in result_message_list:
+            await bot.send_message(chat_id=chat_id, text=part, parse_mode='HTML')
 
 
 async def fetch_url(url, cookies, headers):
