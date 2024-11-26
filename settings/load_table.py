@@ -46,7 +46,7 @@ async def process_data(values: List[List[str]], exclude_key: str) -> Dict[str, L
 
     for row in company_data:
         key: str = row[exclude_idx]
-        data: Dict[str, str] = {header: value for header, value in zip(headers, row) if value and header != exclude_key}
+        data: Dict[str, str] = {header.strip(): value for header, value in zip(headers, row) if value and header != exclude_key}
 
         if key not in data_dict:
             data_dict[key] = [data]
@@ -79,6 +79,8 @@ async def load_companies_from_sheet(service: Any) -> None:
     if value_3:
         for row in value_3[1:]:
             if row[7] == 'Снято':
+                continue
+            if row[23] == '' and row[24] == "TRUE":
                 continue
             id_ad = row[8]
             dir_ad = row[6]

@@ -784,9 +784,18 @@ async def repeat_send_position_advertisements(bot, chats_idx):
     result = await position()
 
     for idx, price in result.items():
+        limit = int(load_table.info_for_id_ad[idx][0]["limit"]) + int(load_table.info_for_id_ad[idx][0]["step"])
+
+        for i, price_value in enumerate(price):
+            if price_value <= limit:
+                new_price = price[i:]
+                break
+        else:
+            new_price = []
+
         position_ad_table = int(load_table.info_for_id_ad[idx][0]["position"])
-        if len(price) >= position_ad_table:
-            cent = price[position_ad_table - 1]
+        if len(new_price) >= position_ad_table:
+            cent = new_price[position_ad_table - 1]
             if cent % 5 != 0:
                 if load_table.info_for_id_ad[idx][0]["client"] in company_result:
                     company_result[load_table.info_for_id_ad[idx][0]["client"]].update({idx: "На своей позиции"})
