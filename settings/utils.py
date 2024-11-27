@@ -778,39 +778,10 @@ async def send_statistics_to_users_friday(bot):
             continue
 
 
-async def repeat_send_position_advertisements(bot, chats_idx):
-    company_result = {}
+async def repeat_send_position_advertisements(bot, chats_idx, position_advertisements):
+    result = await position(position_advertisements)
 
-    result = await position()
-
-    for idx, price in result.items():
-        limit = int(load_table.info_for_id_ad[idx][0]["limit"]) + int(load_table.info_for_id_ad[idx][0]["step"])
-
-        for i, price_value in enumerate(price):
-            if price_value <= limit:
-                new_price = price[i:]
-                break
-        else:
-            new_price = []
-
-        position_ad_table = int(load_table.info_for_id_ad[idx][0]["position"])
-        if len(new_price) >= position_ad_table:
-            cent = new_price[position_ad_table - 1]
-            if cent % 5 != 0:
-                if load_table.info_for_id_ad[idx][0]["client"] in company_result:
-                    company_result[load_table.info_for_id_ad[idx][0]["client"]].update({idx: "На своей позиции"})
-                else:
-                    company_result[load_table.info_for_id_ad[idx][0]["client"]] = {idx: "На своей позиции"}
-            else:
-                if load_table.info_for_id_ad[idx][0]["client"] in company_result:
-                    company_result[load_table.info_for_id_ad[idx][0]["client"]].update({idx: "Не на своей позиции"})
-                else:
-                    company_result[load_table.info_for_id_ad[idx][0]["client"]] = {idx: "Не на своей позиции"}
-        else:
-            if load_table.info_for_id_ad[idx][0]["client"] in company_result:
-                company_result[load_table.info_for_id_ad[idx][0]["client"]].update({idx: "Не на своей позиции"})
-            else:
-                company_result[load_table.info_for_id_ad[idx][0]["client"]] = {idx: "Не на своей позиции"}
+    company_result = forming_position(result)
 
     if not company_result:
         for chat_id in chats_idx:
@@ -818,6 +789,38 @@ async def repeat_send_position_advertisements(bot, chats_idx):
         return
 
     message_list = ['<b>Позиции объявлений\n\n</b>']
+    message_current_list = []
+    result_message_list = []
+
+    for client, ads in company_result.items():
+        message_current_list.append(f'<b>{client}:</b>\n')
+        for ad_id, status in ads.items():
+            message_current_list.append(f'URL: https://www.farpost.ru/{ad_id}\nОбъявление <b>{status}</b>\n\n')
+        message_current_list.append('\n')
+        if len(''.join(message_list)) + len(''.join(message_current_list)) >= 4096:
+            result_message_list.append(''.join(message_list))
+            message_list = []
+        message_list.append(''.join(message_current_list))
+        message_current_list = []
+
+    result_message_list.append(''.join(message_list))
+
+    for chat_id in chats_idx:
+        for part in result_message_list:
+            await bot.send_message(chat_id=chat_id, text=part, parse_mode='HTML')
+
+
+async def slow_repeat_send_position_advertisements(bot, chats_idx, position_advertisements):
+    result = await position(position_advertisements)
+
+    company_result = forming_position(result)
+
+    if not company_result:
+        for chat_id in chats_idx:
+            await bot.send_message(chat_id=chat_id, text='Нет данных о позициях с параметром "is_slow".')
+        return
+
+    message_list = ['<b>Позиции объявлений с параметром "is_slow"\n\n</b>']
     message_current_list = []
     result_message_list = []
 
@@ -847,8 +850,8 @@ async def fetch_url(url, cookies, headers):
             return {"error": f"Request failed with status {response.status}"}
 
 
-async def position():
-    position_advertisements = load_table.position_advertisements
+async def position(position_advertisements):
+    position_advertisements = position_advertisements
     base_url = "https://www.farpost.ru/api/1.0/rate/stick-order-keys"
     cookies = {
         "boobs": "v4.local.97tIvFnOqoJnuZpltEhNdijYvX-yXWsNqKZDYunaEjZ2l8msd0S23OnO6F3rTwV-WElEugzEGxkxgm7M6MHk680Kcg0R9zd2-R6jML5Zxvyo7OCcew26DbJI7GvmTqwp2E-xPxFOqpG8cTb3bMkpyqokN1JOqGZKf0OWlCMUkxUKxtpD1rb4y1hWqqjM1yU1NftfgqU-IlaeAHAoZczAAX1aoVl51o8.eyJ1c2VySWQiOjMyNTYyMzI3fQ.u1f0dc97",
@@ -892,3 +895,68 @@ async def position():
             result[ad_id] = value["price"]
 
     return result
+
+
+def forming_position(result):
+    company_result = {}
+
+    for idx, price in result.items():
+        limit = int(load_table.info_for_id_ad[idx][0]["limit"]) + int(load_table.info_for_id_ad[idx][0]["step"])
+
+        for i, price_value in enumerate(price):
+            if price_value <= limit:
+                new_price = price[i:]
+                break
+        else:
+            new_price = []
+
+        position_ad_table = int(load_table.info_for_id_ad[idx][0]["position"])
+        if len(new_price) >= position_ad_table:
+            cent = new_price[position_ad_table - 1]
+            if cent % 5 != 0:
+                if load_table.info_for_id_ad[idx][0]["client"] in company_result:
+                    company_result[load_table.info_for_id_ad[idx][0]["client"]].update({idx: "На своей позиции"})
+                else:
+                    company_result[load_table.info_for_id_ad[idx][0]["client"]] = {idx: "На своей позиции"}
+            else:
+                if load_table.info_for_id_ad[idx][0]["client"] in company_result:
+                    company_result[load_table.info_for_id_ad[idx][0]["client"]].update({idx: "Не на своей позиции"})
+                else:
+                    company_result[load_table.info_for_id_ad[idx][0]["client"]] = {idx: "Не на своей позиции"}
+        else:
+            if load_table.info_for_id_ad[idx][0]["client"] in company_result:
+                company_result[load_table.info_for_id_ad[idx][0]["client"]].update({idx: "Не на своей позиции"})
+            else:
+                company_result[load_table.info_for_id_ad[idx][0]["client"]] = {idx: "Не на своей позиции"}
+
+    return company_result
+
+
+async def send_position(message, company_result, is_slow):
+    if not company_result:
+        await message.answer("Нет данных о позициях.")
+        return
+
+    if is_slow:
+        message_list = ['<b>Позиции объявлений с параметром "is_slow"\n\n</b>']
+    else:
+        message_list = ['<b>Позиции объявлений\n\n</b>']
+
+    message_current_list = []
+    result_message_list = []
+
+    for client, ads in company_result.items():
+        message_current_list.append(f'<b>{client}:</b>\n')
+        for ad_id, status in ads.items():
+            message_current_list.append(f'URL: https://www.farpost.ru/{ad_id}\nОбъявление <b>{status}</b>\n\n')
+        message_current_list.append('\n')
+        if len(''.join(message_list)) + len(''.join(message_current_list)) >= 4096:
+            result_message_list.append(''.join(message_list))
+            message_list = []
+        message_list.append(''.join(message_current_list))
+        message_current_list = []
+
+    result_message_list.append(''.join(message_list))
+
+    for part in result_message_list:
+        await message.answer(text=part, parse_mode='HTML')

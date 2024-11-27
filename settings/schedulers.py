@@ -3,7 +3,7 @@ from apscheduler.triggers.cron import CronTrigger
 import pytz
 from settings import load_table
 from settings.utils import send_statistics_to_users, repeat_send_problems_advertisements, \
-    send_statistics_to_users_friday, repeat_send_position_advertisements
+    send_statistics_to_users_friday, repeat_send_position_advertisements, slow_repeat_send_position_advertisements
 
 
 def schedule_daily_statistics(bot):
@@ -45,12 +45,23 @@ def schedule_daily_statistics_friday(bot):
     scheduler.start()
 
 
-def schedule_position_advertisements(bot, chats_idx):
+def schedule_position_advertisements(bot, chats_idx, position_advertisements):
     vladivostok_tz = pytz.timezone('Asia/Vladivostok')
     scheduler = AsyncIOScheduler(timezone=vladivostok_tz)
     scheduler.add_job(
         repeat_send_position_advertisements,
-        CronTrigger(hour='7-23,0', minute='20,50', timezone=vladivostok_tz),
-        args=[bot, chats_idx]
+        CronTrigger(hour='7-23,0', minute='18,48', timezone=vladivostok_tz),
+        args=[bot, chats_idx, position_advertisements]
+    )
+    scheduler.start()
+
+
+def schedule_slow_position_advertisements(bot, chats_idx, position_advertisements):
+    vladivostok_tz = pytz.timezone('Asia/Vladivostok')
+    scheduler = AsyncIOScheduler(timezone=vladivostok_tz)
+    scheduler.add_job(
+        slow_repeat_send_position_advertisements,
+        CronTrigger(hour='7-23,0', minute='3,33', timezone=vladivostok_tz),
+        args=[bot, chats_idx, position_advertisements]
     )
     scheduler.start()

@@ -8,12 +8,13 @@ service = main()
 
 SPREADSHEET_ID: str = '1NROUgrCfvtKfccK8iJm__V3qo7uKTC3KsJhn578S7qY'
 RANGE_NAME: str = "Clients!A1:L"
-RANGE_NAME_2: str = "JSON!A1:AB"
+RANGE_NAME_2: str = "JSON!A1:AD"
 
 companies: Dict[str, Dict[str, str]] = {}
 advertisements: Dict[str, List[Dict[str, str]]] = {}
 advertisements_options: Dict[str, List[Dict[str, str]]] = {}
 position_advertisements = {}
+slow_position_advertisements = {}
 info_for_id_ad = {}
 
 
@@ -46,7 +47,8 @@ async def process_data(values: List[List[str]], exclude_key: str) -> Dict[str, L
 
     for row in company_data:
         key: str = row[exclude_idx]
-        data: Dict[str, str] = {header.strip(): value for header, value in zip(headers, row) if value and header != exclude_key}
+        data: Dict[str, str] = {header.strip(): value for header, value in zip(headers, row) if
+                                value and header != exclude_key}
 
         if key not in data_dict:
             data_dict[key] = [data]
@@ -59,7 +61,7 @@ async def process_data(values: List[List[str]], exclude_key: str) -> Dict[str, L
 async def load_companies_from_sheet(service: Any) -> None:
     logger.info('Началась загрузка данных')
 
-    global companies, advertisements, advertisements_options, position_advertisements, info_for_id_ad
+    global companies, advertisements, advertisements_options, position_advertisements, info_for_id_ad, slow_position_advertisements
 
     values_1: Optional[List[List[str]]] = await load_data_from_sheet(service, RANGE_NAME)
     if values_1:
@@ -78,19 +80,34 @@ async def load_companies_from_sheet(service: Any) -> None:
     value_3 = await load_data_from_sheet(service, RANGE_NAME_2)
     if value_3:
         for row in value_3[1:]:
-            if row[7] == 'Снято':
-                continue
-            if row[23] == '' and row[24] == "TRUE":
-                continue
-            id_ad = row[8]
-            dir_ad = row[6]
-            geo_ad = row[3]
-            lemma_ad = row[5]
-            params = (geo_ad, lemma_ad, dir_ad)
-            if params in position_advertisements:
-                position_advertisements[params]['idx'].append(id_ad)
+            if row[27] == 'TRUE':
+                if row[7] == 'Снято':
+                    continue
+                if row[23] == '' and row[24] == "TRUE":
+                    continue
+                id_ad = row[8]
+                dir_ad = row[6]
+                geo_ad = row[3]
+                lemma_ad = row[5]
+                params = (geo_ad, lemma_ad, dir_ad)
+                if params in slow_position_advertisements:
+                    slow_position_advertisements[params]['idx'].append(id_ad)
+                else:
+                    slow_position_advertisements[params] = {'idx': [id_ad]}
             else:
-                position_advertisements[params] = {'idx': [id_ad]}
+                if row[7] == 'Снято':
+                    continue
+                if row[23] == '' and row[24] == "TRUE":
+                    continue
+                id_ad = row[8]
+                dir_ad = row[6]
+                geo_ad = row[3]
+                lemma_ad = row[5]
+                params = (geo_ad, lemma_ad, dir_ad)
+                if params in position_advertisements:
+                    position_advertisements[params]['idx'].append(id_ad)
+                else:
+                    position_advertisements[params] = {'idx': [id_ad]}
 
     values_4 = await load_data_from_sheet(service, RANGE_NAME_2)
     if values_4:
