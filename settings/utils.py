@@ -901,6 +901,15 @@ def forming_position(result):
     company_result = {}
 
     for idx, price in result.items():
+        start_time = datetime.strptime(load_table.info_for_id_ad[idx][0]['start_time'].strip(), '%H.%M').time()
+        end_time = datetime.strptime(load_table.info_for_id_ad[idx][0]['finish_time'].strip(), '%H.%M').time()
+
+        vladivostok_tz = pytz.timezone('Asia/Vladivostok')
+        vladivostok_time = datetime.now(vladivostok_tz).time()
+
+        if vladivostok_time >= end_time or vladivostok_time <= start_time:
+            continue
+
         limit = int(load_table.info_for_id_ad[idx][0]["limit"]) + int(load_table.info_for_id_ad[idx][0]["step"])
 
         for i, price_value in enumerate(price):
