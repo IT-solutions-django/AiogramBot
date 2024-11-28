@@ -34,9 +34,9 @@ async def main() -> None:
     schedule_daily_data_loading()
     schedule_problems_advertisements(bot, chats_idx)
     schedule_daily_statistics_friday(bot)
-    schedule_position_advertisements(bot, chats_idx, load_table.position_advertisements)
-    schedule_slow_position_advertisements(bot, chats_idx, load_table.slow_position_advertisements)
-    schedule_balance_position()
+    # schedule_position_advertisements(bot, chats_idx, load_table.position_advertisements)
+    # schedule_slow_position_advertisements(bot, chats_idx, load_table.slow_position_advertisements)
+    # schedule_balance_position()
     schedule_payments(bot, chats_idx)
 
     await dp.start_polling(bot, skip_updates=True)
