@@ -65,3 +65,13 @@ def schedule_slow_position_advertisements(bot, chats_idx, position_advertisement
         args=[bot, chats_idx, position_advertisements]
     )
     scheduler.start()
+
+
+def schedule_balance_position():
+    vladivostok_tz = pytz.timezone('Asia/Vladivostok')
+    scheduler = AsyncIOScheduler(timezone=vladivostok_tz)
+    scheduler.add_job(
+        load_table.get_balance_position,
+        CronTrigger(hour='7-23,0', minute='1', timezone=vladivostok_tz)
+    )
+    scheduler.start()

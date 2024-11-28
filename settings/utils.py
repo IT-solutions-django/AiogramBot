@@ -793,6 +793,12 @@ async def repeat_send_position_advertisements(bot, chats_idx, position_advertise
     result_message_list = []
 
     for client, ads in company_result.items():
+        if client in load_table.balance_position:
+            if isinstance(load_table.balance_position[client], str):
+                continue
+            if load_table.balance_position[client] <= 150:
+                continue
+
         message_current_list.append(f'<b>{client}:</b>\n')
         for ad_id, status in ads.items():
             message_current_list.append(f'URL: https://www.farpost.ru/{ad_id}\nОбъявление <b>{status}</b>\n\n')
@@ -825,6 +831,12 @@ async def slow_repeat_send_position_advertisements(bot, chats_idx, position_adve
     result_message_list = []
 
     for client, ads in company_result.items():
+        if client in load_table.balance_position:
+            if isinstance(load_table.balance_position[client], str):
+                continue
+            if load_table.balance_position[client] <= 150:
+                continue
+
         message_current_list.append(f'<b>{client}:</b>\n')
         for ad_id, status in ads.items():
             message_current_list.append(f'URL: https://www.farpost.ru/{ad_id}\nОбъявление <b>{status}</b>\n\n')
@@ -955,6 +967,12 @@ async def send_position(message, company_result, is_slow):
     result_message_list = []
 
     for client, ads in company_result.items():
+        if client in load_table.balance_position:
+            if isinstance(load_table.balance_position[client], str):
+                continue
+            if load_table.balance_position[client] <= 150:
+                continue
+
         message_current_list.append(f'<b>{client}:</b>\n')
         for ad_id, status in ads.items():
             message_current_list.append(f'URL: https://www.farpost.ru/{ad_id}\nОбъявление <b>{status}</b>\n\n')

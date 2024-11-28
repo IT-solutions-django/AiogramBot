@@ -6,7 +6,7 @@ from settings import load_table
 from settings.middleware import AccessMiddleware
 from settings.schedulers import schedule_daily_statistics, schedule_daily_data_loading, \
     schedule_problems_advertisements, schedule_daily_statistics_friday, schedule_position_advertisements, \
-    schedule_slow_position_advertisements
+    schedule_slow_position_advertisements, schedule_balance_position
 import json
 
 API_TOKEN: str = dotenv_values(".env")['API_TOKEN']
@@ -21,6 +21,9 @@ async def main() -> None:
     if not load_table.companies or not load_table.advertisements_options or not load_table.advertisements:
         await load_table.load_companies_from_sheet(load_table.service)
 
+    if not load_table.balance_position:
+        await load_table.get_balance_position()
+
     dp.message.middleware(AccessMiddleware(chats_idx))
     dp.callback_query.middleware(AccessMiddleware(chats_idx))
 
@@ -33,6 +36,7 @@ async def main() -> None:
     schedule_daily_statistics_friday(bot)
     schedule_position_advertisements(bot, chats_idx, load_table.position_advertisements)
     schedule_slow_position_advertisements(bot, chats_idx, load_table.slow_position_advertisements)
+    schedule_balance_position()
 
     await dp.start_polling(bot, skip_updates=True)
 

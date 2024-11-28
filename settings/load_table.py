@@ -3,6 +3,8 @@ from googleapiclient.errors import HttpError
 from settings.quickstart import main
 from typing import List, Dict, Optional, Any
 from settings.logging_settings import logger
+import aiohttp
+from settings import static
 
 service = main()
 
@@ -16,6 +18,7 @@ advertisements_options: Dict[str, List[Dict[str, str]]] = {}
 position_advertisements = {}
 slow_position_advertisements = {}
 info_for_id_ad = {}
+balance_position = {}
 
 
 async def load_data_from_sheet(service: Any, range_name: str, retries: int = 3) -> Optional[List[List[str]]]:
@@ -114,3 +117,27 @@ async def load_companies_from_sheet(service: Any) -> None:
         info_for_id_ad = await process_data(values_2, '_id')
 
     logger.info('Загрузка данных завершилась')
+
+
+async def get_balance_position():
+    logger.info('Началась загрузка баланса')
+    global balance_position
+
+    boobs = {data['Client']: {'Boobs': data['Boobs'], 'Company': field} for field, data in companies.items()
+             if 'Boobs' in data}
+
+    balance_url = static.Urls.BALANCE_URL.value
+
+    for client_name, boob_value in boobs.items():
+        headers = {'Cookie': f"boobs={boob_value['Boobs']}"}
+
+        async with aiohttp.request('get', balance_url, headers=headers, allow_redirects=False) as balance_response:
+            if balance_response.status == 200:
+                balance_data = await balance_response.json()
+                balance = balance_data.get('canSpend')
+                balance_position[boob_value['Company']] = balance
+            else:
+                balance_position[boob_value['Company']] = "Ошибка получения баланса"
+                logger.warning(f'Ошибка получения баланса для {boob_value['Company']}')
+
+    logger.info('Завершилась загрузка баланса')
