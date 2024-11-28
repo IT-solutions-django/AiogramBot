@@ -138,6 +138,6 @@ async def get_balance_position():
                 balance_position[boob_value['Company']] = balance
             else:
                 balance_position[boob_value['Company']] = "Ошибка получения баланса"
-                logger.warning(f'Ошибка получения баланса для {boob_value['Company']}')
+                logger.warning(f"Ошибка получения баланса для {boob_value['Company']}")
 
     logger.info('Завершилась загрузка баланса')
