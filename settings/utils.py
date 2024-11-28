@@ -987,3 +987,72 @@ async def send_position(message, company_result, is_slow):
 
     for part in result_message_list:
         await message.answer(text=part, parse_mode='HTML')
+
+
+async def send_payments_day():
+    payments = {}
+
+    companies = load_table.companies
+    for company, data_dict in companies.items():
+        if company == 'IT-solutions':
+            continue
+        date_str = data_dict["Next payment day"]
+
+        date_format = '%d.%m.%Y'
+        next_payment_date = datetime.strptime(date_str, date_format).date()
+
+        vladivostok_tz = pytz.timezone('Asia/Vladivostok')
+        current_date_vladivostok = datetime.now(vladivostok_tz).date()
+
+        if (current_date_vladivostok + timedelta(days=1)) == next_payment_date:
+            payments[company] = {
+                'Клиент': data_dict['Client'],
+                'Телефон': data_dict['Phone number'],
+                'Дата платежа': data_dict['Next payment day'],
+                'Сумма платежа': data_dict['How much is paid'],
+                'Сообщение': 'Завтра необходимо оплатить'
+            }
+        elif current_date_vladivostok == next_payment_date:
+            payments[company] = {
+                'Клиент': data_dict['Client'],
+                'Телефон': data_dict['Phone number'],
+                'Дата платежа': data_dict['Next payment day'],
+                'Сумма платежа': data_dict['How much is paid'],
+                'Сообщение': 'Сегодня необходимо оплатить'
+            }
+        elif (current_date_vladivostok - next_payment_date).days > 0:
+            payments[company] = {
+                'Клиент': data_dict['Client'],
+                'Телефон': data_dict['Phone number'],
+                'Дата платежа': data_dict['Next payment day'],
+                'Сумма платежа': data_dict['How much is paid'],
+                'Сообщение': f"Задолжность платежа {(current_date_vladivostok - next_payment_date).days} дней"
+            }
+
+    return payments
+
+
+async def message_payments_day(bot, chats_idx):
+    res_payment = await send_payments_day()
+
+    message_list = []
+
+    message_current_list = []
+    result_message_list = []
+
+    for company, data_dict in res_payment.items():
+        message_current_list.append(f'<b>{company}:</b>\n')
+        for filed, data in data_dict.items():
+            message_current_list.append(f"<b>{filed}:</b> {data}\n")
+        message_current_list.append('\n')
+        if len(''.join(message_list)) + len(''.join(message_current_list)) >= 4096:
+            result_message_list.append(''.join(message_list))
+            message_list = []
+        message_list.append(''.join(message_current_list))
+        message_current_list = []
+
+    result_message_list.append(''.join(message_list))
+
+    for chat_id in chats_idx:
+        for part in result_message_list:
+            await bot.send_message(chat_id=chat_id, text=part, parse_mode='HTML')

@@ -6,7 +6,7 @@ from settings import load_table
 from settings.middleware import AccessMiddleware
 from settings.schedulers import schedule_daily_statistics, schedule_daily_data_loading, \
     schedule_problems_advertisements, schedule_daily_statistics_friday, schedule_position_advertisements, \
-    schedule_slow_position_advertisements, schedule_balance_position
+    schedule_slow_position_advertisements, schedule_balance_position, schedule_payments
 import json
 
 API_TOKEN: str = dotenv_values(".env")['API_TOKEN']
@@ -37,6 +37,7 @@ async def main() -> None:
     schedule_position_advertisements(bot, chats_idx, load_table.position_advertisements)
     schedule_slow_position_advertisements(bot, chats_idx, load_table.slow_position_advertisements)
     schedule_balance_position()
+    schedule_payments(bot, chats_idx)
 
     await dp.start_polling(bot, skip_updates=True)
 

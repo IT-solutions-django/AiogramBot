@@ -3,7 +3,8 @@ from apscheduler.triggers.cron import CronTrigger
 import pytz
 from settings import load_table
 from settings.utils import send_statistics_to_users, repeat_send_problems_advertisements, \
-    send_statistics_to_users_friday, repeat_send_position_advertisements, slow_repeat_send_position_advertisements
+    send_statistics_to_users_friday, repeat_send_position_advertisements, slow_repeat_send_position_advertisements, \
+    message_payments_day
 
 
 def schedule_daily_statistics(bot):
@@ -73,5 +74,21 @@ def schedule_balance_position():
     scheduler.add_job(
         load_table.get_balance_position,
         CronTrigger(hour='7-23,0', minute='1', timezone=vladivostok_tz)
+    )
+    scheduler.start()
+
+
+def schedule_payments(bot, chats_idx):
+    vladivostok_tz = pytz.timezone('Asia/Vladivostok')
+    scheduler = AsyncIOScheduler(timezone=vladivostok_tz)
+    scheduler.add_job(
+        message_payments_day,
+        CronTrigger(
+            day='14,15,29,30',
+            hour='10',
+            minute='55',
+            timezone=vladivostok_tz
+        ),
+        args=[bot, chats_idx]
     )
     scheduler.start()
