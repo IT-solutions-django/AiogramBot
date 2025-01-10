@@ -9,7 +9,7 @@ from settings import static
 service = main()
 
 SPREADSHEET_ID: str = '1NROUgrCfvtKfccK8iJm__V3qo7uKTC3KsJhn578S7qY'
-RANGE_NAME: str = "Clients!A1:L"
+RANGE_NAME: str = "Clients!A1:M"
 RANGE_NAME_2: str = "JSON!A1:AD"
 
 companies: Dict[str, Dict[str, str]] = {}
