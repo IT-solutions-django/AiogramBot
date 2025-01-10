@@ -655,7 +655,9 @@ async def repeat_send_problems_advertisements(bot, chats_idx):
                 for advertisement in list_advertisements
                 if advertisement['status'] == 'Подключено' and
                    advertisement['start_time'].strip() != vladivostok_time.strftime("%-H.%M") and
-                   advertisement['finish_time'].strip() != vladivostok_time.strftime("%-H.%M")
+                   advertisement['finish_time'].strip() != vladivostok_time.strftime("%-H.%M") and advertisement[
+                       '_id'] not in ['58237112', '61797382', '118160752', '119696095', '58917863', '117802456',
+                                      '110552257', '119697381', '117497197', '117497287', '118042311', '117462211']
             ]
 
             company_message_lines = await asyncio.gather(*task_result)
