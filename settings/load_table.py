@@ -50,7 +50,7 @@ async def process_data(values: List[List[str]], exclude_key: str) -> Dict[str, L
 
     for row in company_data:
         key: str = row[exclude_idx]
-        if key not in companies:
+        if key not in companies and exclude_key == 'client':
             continue
         data: Dict[str, str] = {header.strip(): value for header, value in zip(headers, row) if
                                 value and header != exclude_key}
