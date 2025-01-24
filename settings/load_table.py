@@ -73,6 +73,7 @@ async def load_companies_from_sheet(service: Any) -> None:
         companies = {
             row[0]: {headers[i]: row[i] for i in range(1, len(headers)) if row[i]}
             for row in company_data
+            if row[4] == 'Подключен'
         }
 
     values_2: Optional[List[List[str]]] = await load_data_from_sheet(service, RANGE_NAME_2)
