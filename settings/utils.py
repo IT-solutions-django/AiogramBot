@@ -185,7 +185,7 @@ async def fetch_advertisement_common(advertisement: Dict[str, str], all_dict: Di
     chapter = advertisement['section']
 
     active_day_map: Dict[str, set] = is_day_active()
-    active_day: Optional[set] = active_day_map.get(advertisement['weekday_active'], None)
+    active_day: Optional[set] = active_day_map.get(advertisement['active'], None)
 
     if active_day is None:
         logger.warning(
@@ -195,8 +195,8 @@ async def fetch_advertisement_common(advertisement: Dict[str, str], all_dict: Di
     is_active_day: bool = current_day in active_day
     url: str = static.Urls.URL_ADVERTISEMENT.get_url(id_advertisement=id_advertisement)
 
-    start_time = datetime.strptime(advertisement['start_time'].strip(), '%H.%M').time()
-    end_time = datetime.strptime(advertisement['finish_time'].strip(), '%H.%M').time()
+    start_time = datetime.strptime(advertisement['start'].strip(), '%H.%M').time()
+    end_time = datetime.strptime(advertisement['finish'].strip(), '%H.%M').time()
 
     if check_problems:
         if check_cause:
@@ -211,17 +211,17 @@ async def fetch_advertisement_common(advertisement: Dict[str, str], all_dict: Di
                     return f'Ошибка получения баланса для {company}\n'
             if not (id_advertisement in all_dict) and (
                     start_time <= vladivostok_time <= end_time) and is_active_day and balance >= 150:
-                return f'URL: {url}\nОбъявление не приклеено\nАктивные часы: {advertisement["start_time"].strip()} - {advertisement["finish_time"].strip()}\n\n'
+                return f'URL: {url}\nОбъявление не приклеено\nАктивные часы: {advertisement["start"].strip()} - {advertisement["finish"].strip()}\n\n'
             elif id_advertisement in all_dict and (
                     not (start_time <= vladivostok_time <= end_time) or not is_active_day):
-                return f'URL: {url}\nОбъявление приклеено\nАктивные часы: {advertisement["start_time"].strip()} - {advertisement["finish_time"].strip()}\n\n'
+                return f'URL: {url}\nОбъявление приклеено\nАктивные часы: {advertisement["start"].strip()} - {advertisement["finish"].strip()}\n\n'
             else:
                 return ''
         else:
             if id_advertisement in all_dict and (not (start_time <= vladivostok_time <= end_time) or not is_active_day):
-                return f'URL: {url}\nОбъявление приклеено\nАктивные часы: {advertisement["start_time"].strip()} - {advertisement["finish_time"].strip()}\n\n'
+                return f'URL: {url}\nОбъявление приклеено\nАктивные часы: {advertisement["start"].strip()} - {advertisement["finish"].strip()}\n\n'
             elif not (id_advertisement in all_dict) and (start_time <= vladivostok_time <= end_time) and is_active_day:
-                return f'URL: {url}\nОбъявление не приклеено\nАктивные часы: {advertisement["start_time"].strip()} - {advertisement["finish_time"].strip()}\n\n'
+                return f'URL: {url}\nОбъявление не приклеено\nАктивные часы: {advertisement["start"].strip()} - {advertisement["finish"].strip()}\n\n'
             else:
                 return ''
     else:
@@ -654,8 +654,8 @@ async def repeat_send_problems_advertisements(bot, chats_idx):
                                            True, company)
                 for advertisement in list_advertisements
                 if advertisement['status'] == 'Подключено' and
-                   advertisement['start_time'].strip() != vladivostok_time.strftime("%-H.%M") and
-                   advertisement['finish_time'].strip() != vladivostok_time.strftime("%-H.%M") and advertisement[
+                   advertisement['start'].strip() != vladivostok_time.strftime("%-H.%M") and
+                   advertisement['finish'].strip() != vladivostok_time.strftime("%-H.%M") and advertisement[
                        '_id'] not in ['58237112', '61797382', '118160752', '119696095', '58917863', '117802456',
                                       '110552257', '119697381', '117497197', '117497287', '118042311', '117462211',
                                       '117462016']
@@ -916,8 +916,8 @@ def forming_position(result):
     company_result = {}
 
     for idx, price in result.items():
-        start_time = datetime.strptime(load_table.info_for_id_ad[idx][0]['start_time'].strip(), '%H.%M').time()
-        end_time = datetime.strptime(load_table.info_for_id_ad[idx][0]['finish_time'].strip(), '%H.%M').time()
+        start_time = datetime.strptime(load_table.info_for_id_ad[idx][0]['start'].strip(), '%H.%M').time()
+        end_time = datetime.strptime(load_table.info_for_id_ad[idx][0]['finish'].strip(), '%H.%M').time()
 
         vladivostok_tz = pytz.timezone('Asia/Vladivostok')
         vladivostok_time = datetime.now(vladivostok_tz).time()
