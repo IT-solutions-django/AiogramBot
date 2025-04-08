@@ -210,7 +210,7 @@ async def fetch_advertisement_common(advertisement: Dict[str, str], all_dict: Di
                 else:
                     return f'Ошибка получения баланса для {company}\n'
             if not (id_advertisement in all_dict) and (
-                    start_time <= vladivostok_time <= end_time) and is_active_day and balance >= 150:
+                    start_time <= vladivostok_time <= end_time) and is_active_day and balance > 200:
                 return f'URL: {url}\nОбъявление не приклеено\nАктивные часы: {advertisement["start"].strip()} - {advertisement["finish"].strip()}\n\n'
             elif id_advertisement in all_dict and (
                     not (start_time <= vladivostok_time <= end_time) or not is_active_day):
